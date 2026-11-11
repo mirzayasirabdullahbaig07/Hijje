@@ -1,1 +1,281 @@
 # Hijje
+
+**Measuring, and fixing, what happens to search when Roman Urdu is spelled differently.**
+
+*Hijje* (ہجے) is the Urdu word for "spelling". The name itself can be written
+hijje, hijjay or hijay, which is the problem this project studies.
+
+> **Status: v0.1, a tested research instrument with a small seed dataset.**
+> It makes no research claims yet. The numbers below are a check that the
+> pipeline works. What is missing before a paper is listed under
+> [Limitations](#limitations) and in [docs/RESEARCH_PLAN.md](docs/RESEARCH_PLAN.md).
+
+---
+
+## The problem
+
+Roman Urdu is Urdu typed in Latin letters. It has no standard spelling. One
+person writes "nahi", the next "nhi", a third "nahin", and all three are
+correct. Search engines and RAG systems assume each word has one spelling.
+
+Here is what that assumption costs, on a real run of this code. The passage
+being searched for is:
+
+> *Chawal pakane se pehle unhein aadha ghanta pani mein bhigo dein…*
+
+| What the user typed | Exact-match search (BM25) | BM25 with phonetic normalisation |
+|---|---|---|
+| chawal pakane se pehle kitni dair pani mein bhigona chahiye | finds it, rank 1 | finds it, rank 1 |
+| chaval pakany say pehlay kitnee der panee me bigona chahye | **does not find it at all** | finds it, rank 1 |
+
+Both lines are the same question. In the second, not one word matches the
+passage letter for letter, so exact-match search returns no results. A RAG
+system built on it would then answer without the passage it needed, and
+nothing in the system would report an error.
+
+## Why this project
+
+**Who is affected.** Very large numbers of people write Urdu in Latin letters
+every day in chat, comments, search boxes and customer-support messages. The
+more informally someone types, the worse today's systems serve them.
+
+**Why existing tools fail.** Lexical search matches exact tokens, so a
+respelled word is simply a different word to it. Neural embedding models break
+an unfamiliar spelling into subword pieces; whether the result still lands
+near the right passage is something that has to be measured, and for Roman
+Urdu it has not been. Neither kind of system was designed for a language where
+spelling is a personal choice.
+
+**What is missing in research.** Checked with a few targeted searches on
+11 November 2026 (details and links in [docs/RELATED_WORK.md](docs/RELATED_WORK.md)):
+
+- Retrieval with romanised queries has been studied for Chinese and Russian
+  using one tool-generated spelling per word, not human spelling variety.
+- For Roman Urdu the searches found a transliteration paper that does not
+  evaluate retrieval, and one small unpublished repository whose queries were
+  written by an LLM.
+- Roman Urdu spelling variation has been studied for sentiment analysis and
+  word normalisation. No retrieval study of it was found.
+
+So the open piece appears to be a retrieval benchmark with **human-written**
+Roman Urdu spelling variation, an analysis of which variations do the damage,
+and a measured answer to how much normalisation helps before it starts merging
+different words. This is a preliminary reading of the literature, not a
+verified gap.
+
+**Why it is feasible alone and for free.** The scarce resource is native
+speakers who can write and judge Roman Urdu, not GPUs. Everything lexical runs
+on a laptop CPU in seconds. Neural baselines need only a free Kaggle or Colab
+GPU session.
+
+## What the project does
+
+```mermaid
+flowchart LR
+    Q[Queries] --> V[Variation model<br/>15 rules + word list]
+    V --> RQ[Respelled queries<br/>same for every retriever]
+    Q --> R
+    RQ --> R[Retrievers<br/>bm25 · bm25-l1/l2/l3 · char · fusion · dense]
+    D[Documents<br/>never changed] --> R
+    R --> M[Metrics<br/>nDCG · Recall · worst variant · stability]
+    M --> REP[Report<br/>with confidence intervals<br/>and per-rule impact]
+```
+
+1. **Variation model** (`variation.py`) rewrites query words the way people
+   respell them: "baat" → "bat", "mujhe" → "muje", "karna" → "krna". Every
+   edit records which rule made it.
+2. **Normaliser** (`normalize.py`) maps spellings of a word to one key, at
+   three strengths.
+3. **Retrievers** (`retrievers.py`) are run on the clean and the respelled
+   queries.
+4. **Evaluation** (`evaluate.py`) reports how much each retriever loses, with
+   confidence intervals, and which rule causes the loss.
+5. **Review tools** (`review.py`) let native speakers mark which generated
+   respellings are natural, which turns the rules from guesses into
+   measurements.
+
+## Quick start
+
+Tested on Python 3.11, 3.12 and 3.13. No GPU, no API key, no account.
+
+```bash
+git clone https://github.com/<your-username>/hijje.git
+cd hijje
+pip install -e ".[dev]"
+
+pytest                                        # full test suite, a few seconds
+hijje eval --data data/seed --out results/seed
+```
+
+Other commands:
+
+```bash
+hijje variants "mujhe nahi pata"              # see respellings of any text
+hijje normalize "kya kia kiya"                # see the key at every level
+hijje rules --lexicon                         # every rule and word-list entry
+hijje collisions --data data/seed             # which different words get merged
+hijje validate --data path/to/dataset         # check your own dataset
+hijje review-sheet --variants results/seed/variants.jsonl --out review/seed.csv
+hijje review-stats --sheet review/seed.csv
+```
+
+Any dataset in BEIR layout (`corpus.jsonl`, `queries.jsonl`, `qrels.tsv`)
+works with `--data`.
+
+## Results on the seed set
+
+48 passages, 48 queries, 5 respelled versions of each query at each rate,
+seed 13. Full output: [results/seed/summary.md](results/seed/summary.md).
+A test fails if this table and the saved run disagree.
+
+nDCG@10, where 1.0 is perfect:
+
+| Retriever | Clean | 95% CI | 50% respelled | Drop | 100% respelled | Drop | Worst variant | Stability |
+|---|---|---|---|---|---|---|---|---|
+| bm25 | 0.993 | 0.982–1.000 | 0.919 | 7.4% | 0.634 | 36.2% | 0.634 | 0.275 |
+| bm25-l1 | 0.993 | 0.982–1.000 | 0.963 | 3.0% | 0.861 | 13.3% | 0.789 | 0.352 |
+| bm25-l2 | 0.993 | 0.982–1.000 | 0.985 | 0.7% | 0.970 | 2.2% | 0.962 | 0.690 |
+| bm25-l3 | 0.993 | 0.982–1.000 | 0.993 | 0.0% | 0.993 | 0.0% | 0.993 | 0.878 |
+| char | 0.985 | 0.966–1.000 | 0.970 | 1.6% | 0.962 | 2.3% | 0.935 | 0.491 |
+| fusion | 0.993 | 0.982–1.000 | 0.962 | 3.1% | 0.882 | 11.2% | 0.858 | 0.496 |
+
+"50% respelled" means each respellable word was changed with probability 0.5;
+"100%" means every respellable word was changed.
+
+**What this run shows**
+
+- The pipeline works end to end and is reproducible: two runs give identical
+  files.
+- Exact-match BM25 loses 36.2% of its score when every respellable word is
+  respelled, and 7.4% when about half are. The problem is visible even on an
+  easy dataset.
+
+**What this run does not show**
+
+- **It does not show that level-3 normalisation is the answer.** Its 0.0% drop
+  is close to guaranteed here, for two reasons. The normaliser and the variant
+  generator were written from the same knowledge of Roman Urdu, so the
+  normaliser undoes most of what the generator does by construction. And with
+  only 48 passages, merging different words costs nothing: level 3 merges
+  "pani" (water) with "peena" (to drink), and "din" (day) with "dena" (to
+  give), and gets away with it. On a corpus of thousands of passages those
+  merges will pull in wrong results.
+- **It does not show anything about clean-text quality.** Every retriever is
+  near the ceiling on clean queries because the seed set is too easy.
+- **Fusion did not help.** Combining exact BM25, level-2 BM25 and character
+  n-grams scored below level-2 BM25 alone (0.882 against 0.970), because the
+  exact-match component votes for wrong passages once its words stop matching.
+  This negative result is kept on purpose; which views are worth fusing is an
+  open question for the real dataset.
+- **No neural model has been run yet.** Dense retrievers need a model
+  download; see [Dense models on Kaggle or Colab](#dense-models-on-kaggle-or-colab).
+- **The respellings are synthetic and unreviewed.** Whether they look like
+  what people type is a question for native speakers
+  ([docs/VARIATION_RULES.md](docs/VARIATION_RULES.md)).
+
+## Why these techniques
+
+Each choice below was made to answer a specific question or to remove a
+specific doubt a reviewer would raise.
+
+| Technique | Why it is used | What was considered instead |
+|---|---|---|
+| **BM25** as the main baseline | It is the standard lexical baseline, it needs no training, and exact matching is the thing spelling variation breaks, so it shows the problem most clearly. | Starting with neural models only. That would hide whether the failure is about spelling or about the model. |
+| **BM25 written out in plain Python** | About 40 lines, no hidden preprocessing, and it accepts any analyzer, which is how the normalised versions are built without duplicating code. | A library. Faster, but its tokeniser and defaults would be one more unexplained difference between systems. For large corpora, swap one in behind the same interface. |
+| **Character n-gram TF-IDF** | A respelled word shares most of its letter sequences with the original, so this tolerates spelling changes with no knowledge of Urdu. It is the baseline the Urdu-specific rules must beat to justify existing. | Edit-distance matching. Too slow to run against every word of a large index. |
+| **Phonetic normalisation at three levels** | Language knowledge written as rules is free, fast and inspectable. Three levels turn "does normalisation help?" into "how much normalisation helps before false merges hurt?", which is the more useful question. | One fixed normaliser. That would give a single number and hide the trade-off. |
+| **Rules without a word list in the normaliser** | The variant generator has a word list. A normaliser built from the same list would solve the synthetic test by memorising it. | A dictionary-based spell corrector. There is no standard spelling to correct towards. |
+| **Reciprocal Rank Fusion** | It combines retrievers using ranks only, so BM25 scores and cosine similarities can be mixed without calibrating them. | Weighted score sums. They need tuned weights, and there is no development set yet to tune on. |
+| **Dense multilingual models** (optional) | They are what RAG systems deploy in practice, so their robustness is the number practitioners need. | Leaving them out. The study would then say nothing about real systems. |
+| **Rule-based variants, not LLM-written ones** | Free, offline, identical on every run with the same seed, and every edit is labelled with its rule, which makes the per-rule analysis possible. | Asking an LLM to respell queries. That costs credits or rate limits, is hard to reproduce exactly, and reflects the model's spelling habits rather than people's. |
+| **Seeds derived with SHA-256, and only `random()` used** | Python's built-in `hash()` of text changes on every run, and Python guarantees a stable sequence across versions only for `random()`, not for `choice()` or `shuffle()`. This combination gives the same variants on any machine. | `random.seed(42)` plus `random.choice`. Common, and not guaranteed to reproduce across Python versions. |
+| **Same variants for every retriever** | Differences between retrievers are then differences between methods, not between random draws. | Sampling inside each retriever's run. |
+| **nDCG@10 and Recall@10** | nDCG@10 is the usual headline metric for this kind of benchmark, so results are comparable. Recall@10 matters for RAG because a passage outside the top results never reaches the generator. | A single metric. |
+| **Worst-variant score and stability** | A user types one spelling, not the average of five. The worst case is what a user actually experiences; stability shows whether results change even when the score does not. | Averages only. They hide the unlucky spellings. |
+| **Bootstrap confidence intervals, paired for comparisons** | With tens or hundreds of queries, a difference of 0.02 may be luck. The interval says whether it is. | Reporting bare means. Reviewers reject this. |
+| **Per-rule impact table** | Shows which kind of respelling hurts which retriever, which is what tells you what to fix. | Only the overall drop. |
+| **BEIR file layout** | Any BEIR-format dataset plugs in unchanged, and other people's tools can read this project's data. | A custom format. |
+| **Native-speaker review sheet** | Turns "these rules look plausible" into a measured precision per rule, with agreement between reviewers. | Trusting the rule author. |
+
+## Project layout
+
+```
+src/hijje/
+  text.py         one tokeniser shared by everything
+  variation.py    spelling-variation rules, word list, seeded generator
+  normalize.py    phonetic normalisation, levels 0–3
+  retrievers.py   BM25, char n-grams, RRF fusion, dense wrapper
+  metrics.py      nDCG, recall, MRR, bootstrap intervals
+  data.py         BEIR-layout loader and dataset checks
+  evaluate.py     the robustness experiment
+  report.py       Markdown report
+  review.py       native-speaker review sheet and its statistics
+  cli.py          the `hijje` command
+data/seed/        48 passages, 48 queries, labels, protected loanwords
+results/seed/     reference output of the seed run
+review/seed.csv   review sheet generated from that run, waiting to be filled
+tests/            unit tests, reproducibility checks, README-vs-results check
+docs/
+  RESEARCH_PLAN.md     research questions, data plan, threats, milestones
+  RELATED_WORK.md      reading list with what was and was not verified
+  VARIATION_RULES.md   every rule, its known weaknesses, how to review it
+notebooks/
+  dense_baselines.ipynb  runs neural retrievers on a free GPU
+```
+
+## Dense models on Kaggle or Colab
+
+The neural baselines have **not been run yet**. The dense retriever's ranking
+code is tested with a stand-in encoder, but no real model has been downloaded
+or evaluated.
+
+1. Push this repository to your GitHub account.
+2. Open `notebooks/dense_baselines.ipynb` in Kaggle or Colab, turn the GPU on,
+   and set `REPO_URL` in the first code cell.
+3. Run all cells. The notebook installs the package with the `dense` extra and
+   runs:
+
+   ```bash
+   hijje eval --data data/seed --out results/seed_dense \
+     --retrievers bm25,bm25-l2,char,dense:intfloat/multilingual-e5-small
+   ```
+
+Any sentence-transformers model can be named after `dense:`. E5 models get
+their required `query:` / `passage:` prefixes automatically.
+
+## Limitations
+
+1. **The seed set is tiny, easy and AI-drafted.** 48 passages cannot support
+   any conclusion. See [data/seed/README.md](data/seed/README.md).
+2. **The respellings are synthetic and not yet reviewed by native speakers.**
+3. **Normalisation is favoured by construction** on synthetic variants. Only
+   human-written variants can test it fairly.
+4. **Documents are never respelled.** Real corpora are inconsistent too.
+5. **English loanwords are protected by a hand-made list** per dataset.
+6. **No neural results yet.**
+7. **The literature check was brief.** A full review may find closer prior work,
+   especially for romanised Hindi.
+
+## Roadmap
+
+| | Milestone | State |
+|---|---|---|
+| M0 | Tested instrument and seed run | done |
+| M1 | Rules reviewed by two native speakers | next |
+| M2 | Dense baselines on the seed set | next |
+| M3 | Literature review of 20–30 papers | |
+| M4 | Real corpus with a clear licence | |
+| M5 | 300+ queries with relevance labels | |
+| M6 | Human-written spelling variants, 5+ writers per query | |
+| M7 | Full experiments | |
+| M8 | Paper draft | |
+
+Details and exit criteria: [docs/RESEARCH_PLAN.md](docs/RESEARCH_PLAN.md).
+
+## Licence and disclosure
+
+Code and seed data: MIT, see [LICENSE](LICENSE).
+
+The first version of the code, rules, seed passages and documentation was
+drafted with an AI assistant and has not yet been reviewed line by line by the
+repository owner.

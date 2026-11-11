@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hijje"
+version = "0.1.0"
+description = "Measuring and fixing spelling-variation failures in Roman Urdu retrieval"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Syeda Faiqa Fiaz" }]
+keywords = ["roman-urdu", "information-retrieval", "rag", "robustness", "low-resource-nlp"]
+dependencies = [
+    "numpy>=1.23",
+    "scikit-learn>=1.2",
+]
+
+[project.optional-dependencies]
+dense = ["sentence-transformers>=2.7"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+hijje = "hijje.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
