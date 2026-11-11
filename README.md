@@ -167,11 +167,63 @@ nDCG@10, where 1.0 is perfect:
   exact-match component votes for wrong passages once its words stop matching.
   This negative result is kept on purpose; which views are worth fusing is an
   open question for the real dataset.
-- **No neural model has been run yet.** Dense retrievers need a model
-  download; see [Dense models on Kaggle or Colab](#dense-models-on-kaggle-or-colab).
 - **The respellings are synthetic and unreviewed.** Whether they look like
   what people type is a question for native speakers
   ([docs/VARIATION_RULES.md](docs/VARIATION_RULES.md)).
+
+### Neural baselines
+
+Run once on a free Kaggle GPU on 12 November 2026 with
+`notebooks/dense_baselines.ipynb`: the same 48 queries, the same respellings,
+the same seed. Full output: [results/seed_dense/summary.md](results/seed_dense/summary.md).
+The three non-neural rows came out identical to the laptop run above.
+
+| Retriever | Clean | 95% CI | 50% respelled | Drop | 100% respelled | Drop | Worst variant | Stability |
+|---|---|---|---|---|---|---|---|---|
+| bm25 | 0.993 | 0.982–1.000 | 0.919 | 7.4% | 0.634 | 36.2% | 0.634 | 0.275 |
+| bm25-l2 | 0.993 | 0.982–1.000 | 0.985 | 0.7% | 0.970 | 2.2% | 0.962 | 0.690 |
+| char | 0.985 | 0.966–1.000 | 0.970 | 1.6% | 0.962 | 2.3% | 0.935 | 0.491 |
+| dense:intfloat/multilingual-e5-small | 0.803 | 0.722–0.880 | 0.730 | 9.1% | 0.672 | 16.3% | 0.607 | 0.602 |
+| dense:intfloat/multilingual-e5-base | 0.881 | 0.803–0.955 | 0.811 | 8.0% | 0.706 | 19.9% | 0.588 | 0.537 |
+| dense:BAAI/bge-m3 | 0.957 | 0.919–0.990 | 0.913 | 4.6% | 0.856 | 10.6% | 0.785 | 0.556 |
+| dense:sentence-transformers/LaBSE | 0.902 | 0.828–0.962 | 0.837 | 7.2% | 0.761 | 15.6% | 0.671 | 0.622 |
+
+The neural rows are from a single run and are not covered by the
+reproducibility test, because a model downloaded on another day may differ.
+
+**What the neural run suggests** (hints from 48 queries, to be tested on real data)
+
+- **No neural model was immune.** All four lost between 10.6% and 19.9% of
+  their score when every respellable word was respelled.
+- **BGE-M3 was the strongest**, on clean queries (0.957) and on respelled ones
+  (0.856).
+- **A bigger model was not more robust.** multilingual-e5-base beat
+  multilingual-e5-small on clean queries (0.881 against 0.803) but lost a
+  larger share of its score (19.9% against 16.3%).
+- **Character n-grams scored above every neural model on respelled queries**
+  (0.962 against 0.856 for the best neural model). That baseline has no
+  neural network and no knowledge of Urdu. The gap was not tested for
+  significance.
+- **Respelling small grammatical words costs neural models and not BM25.**
+  Changing only word endings ("mujhe" → "mujhy") cost the neural models 0.017
+  to 0.090 nDCG and cost BM25 0.009. Common short forms ("hai" → "hy") cost
+  them 0.006 to 0.083 and cost BM25 nothing. BGE-M3 was the least affected.
+- **Texting-style vowel dropping hurt every neural model** (0.049 to 0.078),
+  as well as BM25 (0.043).
+- Against plain BM25 on fully respelled queries, only BGE-M3 (+0.222, 95% CI
+  +0.123 to +0.326) and LaBSE (+0.128, +0.027 to +0.237) were clearly better.
+  The two E5 models could not be told apart from it.
+
+**What the neural run does not show**
+
+- **That keyword methods beat neural ones in general.** The seed queries were
+  written to share words with their passage, which favours word matching.
+  Real users paraphrase, and that is where neural models are expected to do
+  better.
+- **That normalisation beats neural models.** The bm25-l2 row is favoured by
+  construction, as explained above. The character n-gram row is the fairer
+  comparison, because that method was not built from the respelling rules.
+- **Anything about other models, larger corpora, or human spellings.**
 
 ## Why these techniques
 
@@ -225,9 +277,8 @@ notebooks/
 
 ## Dense models on Kaggle or Colab
 
-The neural baselines have **not been run yet**. The dense retriever's ranking
-code is tested with a stand-in encoder, but no real model has been downloaded
-or evaluated.
+The neural results above were produced with this notebook. To run them again
+or to add a model:
 
 1. Push this repository to your GitHub account.
 2. Open `notebooks/dense_baselines.ipynb` in Kaggle or Colab, turn the GPU on,
@@ -252,7 +303,8 @@ their required `query:` / `passage:` prefixes automatically.
    human-written variants can test it fairly.
 4. **Documents are never respelled.** Real corpora are inconsistent too.
 5. **English loanwords are protected by a hand-made list** per dataset.
-6. **No neural results yet.**
+6. **The neural results are one run on 48 passages.** The confidence intervals
+   are wide, and only four models were tried.
 7. **The literature check was brief.** A full review may find closer prior work,
    especially for romanised Hindi.
 
@@ -262,7 +314,7 @@ their required `query:` / `passage:` prefixes automatically.
 |---|---|---|
 | M0 | Tested instrument and seed run | done |
 | M1 | Rules reviewed by two native speakers | next |
-| M2 | Dense baselines on the seed set | next |
+| M2 | Dense baselines on the seed set | done |
 | M3 | Literature review of 20–30 papers | |
 | M4 | Real corpus with a clear licence | |
 | M5 | 300+ queries with relevance labels | |
