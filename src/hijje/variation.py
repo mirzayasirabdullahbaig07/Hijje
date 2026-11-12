@@ -82,8 +82,9 @@ def _final_e_y(w: str) -> list[str]:
         out += [w[:-1] + "ay", w[:-1] + "y"]
     elif w.endswith("ye") and len(w) >= 3:
         out.append(w[:-1] + "ay")
-    if len(w) >= 4 and re.search(r"[%s]i$" % _C, w):
-        out.append(w[:-1] + "y")
+    # A final "i" is NOT respelled as "y" ("pani" -> "pany"). Removed after
+    # native review, round 1: in Pakistan a final -i is written "i", and "y"
+    # at the end of a word stands for the -e sound.
     return out
 
 
@@ -97,10 +98,6 @@ def _glide_y(w: str) -> list[str]:
 
 def _final_h(w: str) -> list[str]:
     return [w[:-1]] if len(w) >= 3 and re.search(r"[aeiou]h$", w) else []
-
-
-def _aspirate_h(w: str) -> list[str]:
-    return _each(r"(?<=[bdjt])h", "", w)
 
 
 def _ph_f(w: str) -> list[str]:
@@ -129,16 +126,18 @@ def _nasal_n(w: str) -> list[str]:
     return out
 
 
-def _w_v(w: str) -> list[str]:
-    return _each(r"w", "v", w) + _each(r"v", "w", w)
-
-
 def _q_k(w: str) -> list[str]:
     return _each(r"q", "k", w)
 
 
+# Words whose first vowel is long, so dropping it gives a form that reads as a
+# typo ("pani" -> "pni"). The spelling does not show vowel length, so the rule
+# cannot work this out; the list holds the words a native reviewer rejected.
+VOWEL_DROP_EXCEPTIONS = frozenset({"pani"})
+
+
 def _vowel_drop(w: str) -> list[str]:
-    if not 3 <= len(w) <= 5:
+    if not 3 <= len(w) <= 5 or w in VOWEL_DROP_EXCEPTIONS:
         return []
     m = re.search(r"(?<=[%s])[aiu](?=[%s])" % (_C, _C), w)
     return [w[: m.start()] + w[m.end():]] if m else []
@@ -160,21 +159,20 @@ RULES: tuple[Rule, ...] = (
     Rule("degeminate", "doubled consonant written once", ("achha", "acha"), _degeminate),
     Rule("ai_e", "'ai' inside a word written as 'e'; final 'ai' as 'ay'", ("kaise", "kese"), _ai_e),
     Rule("au_o", "'au' written as 'o'", ("aur", "or"), _au_o),
-    Rule("final_e_y", "final 'e' or 'i' written as 'ay' or 'y'", ("mujhe", "mujhy"), _final_e_y),
+    Rule("final_e_y", "final 'e' written as 'ay' or 'y'", ("mujhe", "mujhy"), _final_e_y),
     Rule("glide_y", "'y' glide written as 'i' or 'iy' and back", ("kya", "kia"), _glide_y),
     Rule("final_h", "silent final 'h' dropped", ("jagah", "jaga"), _final_h),
-    Rule("aspirate_h", "aspirate 'h' dropped after b, d, j, t", ("mujhe", "muje"), _aspirate_h, 0.7),
     Rule("ph_f", "'ph' written as 'f'", ("phir", "fir"), _ph_f),
     Rule("nasal_n", "nasal ending respelled or dropped", ("nahin", "nahi"), _nasal_n),
-    Rule("w_v", "'w' and 'v' swapped", ("wajah", "vajah"), _w_v, 0.5),
     Rule("q_k", "'q' written as 'k'", ("waqt", "wakt"), _q_k),
     Rule("vowel_drop", "texting style: short vowel dropped", ("karna", "krna"), _vowel_drop, 0.5),
 )
 
 # --- attested alternates for very frequent words ------------------------------
 # These are spellings commonly seen in Pakistani chat text. They were written
-# from general familiarity, not counted from a corpus: a native speaker should
-# review the list, and a corpus-derived list should replace it for the paper.
+# from general familiarity, not counted from a corpus. A native speaker has
+# reviewed a small part (round 1, see docs/VARIATION_RULES.md); the rest still
+# needs review, and a corpus-derived list should replace it for the paper.
 
 LEXICON: dict[str, tuple[str, ...]] = {
     "hai": ("hy", "he", "hay", "h"),
@@ -188,14 +186,14 @@ LEXICON: dict[str, tuple[str, ...]] = {
     "main": ("mein", "me", "mai", "mn"),
     "bohat": ("bohot", "bahut", "boht", "bht", "buhat"),
     "kyun": ("kyu", "kiun", "kyon", "q"),
-    "theek": ("thik", "teek", "thek", "thk", "tik"),
+    "theek": ("thik", "thek", "thk", "theak"),
     "acha": ("achha", "accha"),
-    "achi": ("achhi", "achy", "acchi"),
+    "achi": ("achhi", "acchi"),
     "kuch": ("kuchh", "kch"),
     "yeh": ("ye", "yay", "yh"),
     "ye": ("yeh", "yay", "yh"),
-    "woh": ("wo", "vo", "wh"),
-    "wo": ("woh", "vo", "wh"),
+    "woh": ("wo", "wh"),
+    "wo": ("woh", "wh"),
     "hum": ("ham", "hm"),
     "tum": ("tm",),
     "aap": ("ap",),
@@ -234,7 +232,7 @@ LEXICON: dict[str, tuple[str, ...]] = {
     "kitne": ("kitnay", "ktne"),
     "paisa": ("pesa",),
     "paise": ("pese", "paisay", "pesay"),
-    "tareeqa": ("tariqa", "tarika", "treeqa", "tareeka"),
+    "tareeqa": ("tariqa", "tarika", "tareeka"),
     "karun": ("karoon", "kru", "karu", "krun"),
     "karein": ("karen", "kren", "kare", "krein"),
 }

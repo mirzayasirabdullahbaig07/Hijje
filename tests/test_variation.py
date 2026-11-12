@@ -16,6 +16,32 @@ def test_every_rule_produces_its_documented_example():
         assert target in rule.apply(source), rule.name
 
 
+def test_native_review_round1_decisions_hold():
+    """Respellings rejected by a native reviewer must never be generated again."""
+    model = VariationModel()
+
+    def variants(word):
+        return {v for v, _, _ in model.candidates(word)}
+
+    # a final -i is written "i", not "y" ...
+    for word in ["pani", "roti", "kitni", "jaldi", "achi", "nahi"]:
+        assert word[:-1] + "y" not in variants(word), word
+    # ... while a final -e may still be written "y" or "ay"
+    assert {"bachy", "bachay"} <= variants("bache")
+    # people write "w", not "v"
+    for word in ["chawal", "sawal", "waqt", "woh", "wale"]:
+        assert not any("v" in v for v in variants(word)), word
+    # single words
+    assert "pni" not in variants("pani")
+    assert {"teek", "tik"}.isdisjoint(variants("theek"))
+    assert {"theak", "thk"} <= variants("theek")
+    assert "treeqa" not in variants("tareeqa")
+    # rules removed as a result
+    assert {"w_v", "aspirate_h"}.isdisjoint(model.rule_names())
+    # the natural h-dropping cases are still covered by the word list
+    assert "muje" in variants("mujhe") and "bi" in variants("bhi")
+
+
 def test_rule_names_are_unique():
     names = [r.name for r in RULES]
     assert len(names) == len(set(names))

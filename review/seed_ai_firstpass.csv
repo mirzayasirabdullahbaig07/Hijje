@@ -1,0 +1,291 @@
+original,variant,rule,times_generated,natural,note
+chai,chay,ai_e,14,y,chaye is more usual
+dair,der,ai_e,22,y,
+faida,feda,ai_e,15,n,fayda / faida are the usual spellings
+gaindein,gendein,ai_e,2,y,
+parhai,parhay,ai_e,9,n,reads as a different word (parhay = read)
+bhar,bar,aspirate_h,5,n,reads as a different word (bar)
+bhigona,bigona,aspirate_h,6,n,the h is normally kept
+dhone,done,aspirate_h,1,n,reads as English 'done'
+dhoop,doop,aspirate_h,2,n,the h is normally kept
+haath,haat,aspirate_h,4,n,hath is the usual short form
+saath,saat,aspirate_h,1,n,reads as saat (seven); sath is the usual short form
+dauran,doran,au_o,6,y,
+paude,pode,au_o,7,y,
+paudon,podon,au_o,8,y,
+chhat,chat,degeminate,3,y,also the English word chat
+machharon,macharon,degeminate,4,y,
+aaye,aayay,final_e_y,9,n,aye / ae are the usual spellings
+angrezi,angrezy,final_e_y,4,,unsure: final -i written as -y
+bache,bachay,final_e_y,4,y,
+bache,bachy,final_e_y,2,y,
+bachne,bachnay,final_e_y,2,y,
+bachne,bachny,final_e_y,5,y,
+banane,bananay,final_e_y,6,y,
+banate,banatay,final_e_y,2,y,
+banate,banaty,final_e_y,6,y,
+banti,banty,final_e_y,1,n,"final y normally stands for the -e ending, so this likely reads as the -e form"
+bijli,bijly,final_e_y,4,,unsure: final -i written as -y
+chahiye,chahiyay,final_e_y,7,y,
+chalne,chalnay,final_e_y,2,y,
+chalne,chalny,final_e_y,5,y,
+dasti,dasty,final_e_y,2,,unsure: final -i written as -y
+dhone,dhonay,final_e_y,3,y,
+dhone,dhony,final_e_y,2,y,
+gaari,gaary,final_e_y,2,,unsure: final -i written as -y
+garmi,garmy,final_e_y,3,,unsure: final -i written as -y
+goondhne,goondhnay,final_e_y,3,y,
+goondhne,goondhny,final_e_y,5,y,
+hone,honay,final_e_y,3,y,
+hone,hony,final_e_y,4,y,
+honi,hony,final_e_y,5,n,"final y normally stands for the -e ending, so this likely reads as the -e form"
+hote,hotay,final_e_y,3,y,
+hote,hoty,final_e_y,2,y,
+ilaqe,ilaqay,final_e_y,4,y,
+ilaqe,ilaqy,final_e_y,4,y,
+jaldi,jaldy,final_e_y,6,y,
+jane,janay,final_e_y,3,y,
+jane,jany,final_e_y,5,y,
+jati,jaty,final_e_y,2,n,"final y normally stands for the -e ending, so this likely reads as the -e form"
+kaatni,kaatny,final_e_y,3,n,"final y normally stands for the -e ending, so this likely reads as the -e form"
+kahani,kahany,final_e_y,4,,unsure: final -i written as -y
+kapre,kapray,final_e_y,3,y,
+kapre,kapry,final_e_y,4,y,
+karne,karny,final_e_y,5,y,
+khali,khaly,final_e_y,2,,unsure: final -i written as -y
+khareedari,khareedary,final_e_y,4,,unsure: final -i written as -y
+kitne,kitny,final_e_y,5,y,
+kitni,kitny,final_e_y,7,n,"final y normally stands for the -e ending, so this likely reads as the -e form"
+lagate,lagatay,final_e_y,2,y,
+lagate,lagaty,final_e_y,5,y,
+lambe,lambay,final_e_y,2,y,
+lambe,lamby,final_e_y,3,y,
+le,lay,final_e_y,5,y,
+le,ly,final_e_y,3,y,
+mangte,mangtay,final_e_y,5,y,
+mangte,mangty,final_e_y,2,y,
+nahi,nahy,final_e_y,1,n,not a spelling I recognise for nahi
+pahari,pahary,final_e_y,2,,unsure: final -i written as -y
+pakane,pakanay,final_e_y,1,y,
+pakane,pakany,final_e_y,5,y,
+pani,pany,final_e_y,9,,unsure: final -i written as -y
+paude,pauday,final_e_y,1,y,
+paude,paudy,final_e_y,9,y,
+roti,roty,final_e_y,4,,unsure: final -i written as -y
+sahi,sahy,final_e_y,4,,unsure: final -i written as -y
+sone,sonay,final_e_y,5,y,
+sone,sony,final_e_y,3,y,
+sunane,sunanay,final_e_y,2,y,
+sunane,sunany,final_e_y,6,y,
+tayyari,tayyary,final_e_y,7,,unsure: final -i written as -y
+wale,walay,final_e_y,3,y,
+wale,waly,final_e_y,2,y,
+zaroori,zaroory,final_e_y,1,,unsure: final -i written as -y
+tankhwah,tankhwa,final_h,10,y,
+sardiyon,sardion,glide_y,6,y,
+tehniyan,tehnian,glide_y,3,y,
+tehniyan,tehnyan,glide_y,5,y,
+achi,acchi,lexicon,4,y,
+achi,achhi,lexicon,1,y,
+achi,achy,lexicon,3,y,
+aur,aor,lexicon,2,y,
+aur,or,lexicon,1,y,
+aur,r,lexicon,5,y,
+baad,bad,lexicon,7,y,
+chahiye,chahiay,lexicon,17,y,
+chahiye,chahie,lexicon,27,y,
+chahiye,chahye,lexicon,25,y,
+chahiye,chaiye,lexicon,26,y,
+hai,h,lexicon,30,y,
+hai,hay,lexicon,17,y,
+hai,he,lexicon,20,y,
+hai,hy,lexicon,18,y,
+hain,hai,lexicon,12,y,nasal dropped; same spelling as singular hai
+hain,hein,lexicon,8,y,
+hain,hen,lexicon,10,y,
+hain,hn,lexicon,8,y,
+kab,kb,lexicon,43,y,
+kaise,kaisay,lexicon,26,y,
+kaise,kaisy,lexicon,24,y,
+kaise,kesay,lexicon,19,y,
+kaise,kese,lexicon,19,y,
+kar,kr,lexicon,7,y,
+karein,kare,lexicon,8,y,
+karein,karen,lexicon,5,y,
+karein,krein,lexicon,5,y,
+karein,kren,lexicon,3,y,
+karna,krna,lexicon,23,y,
+karne,karnay,lexicon,10,y,
+karne,krnay,lexicon,6,y,
+karne,krne,lexicon,9,y,
+karun,karoon,lexicon,8,y,
+karun,karu,lexicon,5,y,
+karun,kru,lexicon,5,y,
+karun,krun,lexicon,4,y,
+ke,k,lexicon,37,y,
+ke,kay,lexicon,24,y,
+ke,ky,lexicon,26,y,
+kitna,ktna,lexicon,14,y,
+kitne,kitnay,lexicon,9,y,
+kitne,ktne,lexicon,9,y,
+kitni,ktni,lexicon,19,y,
+kya,kia,lexicon,49,y,
+kya,kiya,lexicon,49,y,
+kyun,kyon,lexicon,3,y,
+kyun,kyu,lexicon,2,y,
+kyun,q,lexicon,2,y,
+lekin,lakin,lexicon,4,y,
+lekin,lkn,lexicon,2,y,
+liye,liay,lexicon,6,y,
+liye,lie,lexicon,8,y,
+liye,liyay,lexicon,4,y,
+liye,lye,lexicon,2,y,
+mein,mai,lexicon,16,y,
+mein,main,lexicon,18,y,
+mein,me,lexicon,20,y,
+mein,men,lexicon,28,y,less common in chat
+mein,mn,lexicon,21,y,
+nahi,nahee,lexicon,5,,unsure: rare
+nahi,nahin,lexicon,1,y,
+nahi,nai,lexicon,3,y,
+nahi,nhi,lexicon,6,y,
+nahi,ni,lexicon,1,y,
+pehle,pahle,lexicon,10,y,
+pehle,pehlay,lexicon,10,y,
+pehle,pehly,lexicon,6,y,
+pehle,phle,lexicon,6,y,
+raha,rha,lexicon,9,y,
+saath,sath,lexicon,6,y,
+se,say,lexicon,40,y,
+se,sy,lexicon,31,y,
+tareeqa,tareeka,lexicon,11,y,
+tareeqa,tarika,lexicon,7,y,
+tareeqa,tariqa,lexicon,11,y,
+tareeqa,treeqa,lexicon,6,,unsure: rare
+theek,teek,lexicon,2,,unsure
+theek,thek,lexicon,1,y,
+theek,thik,lexicon,2,y,
+theek,thk,lexicon,3,y,
+theek,tik,lexicon,1,,unsure: tk is the common short form
+waqt,wakt,lexicon,1,y,
+waqt,waqat,lexicon,2,y,
+waqt,wqt,lexicon,4,y,
+zaroori,zaruri,lexicon,2,y,
+zaroori,zruri,lexicon,5,y,
+aa,a,long_a,9,y,
+aakhir,akhir,long_a,7,y,
+aata,ata,long_a,8,y,also = comes
+aaye,aye,long_a,11,y,
+anjaan,anjan,long_a,9,y,
+barsaat,barsat,long_a,8,y,
+bazaar,bazar,long_a,8,y,
+daagh,dagh,long_a,10,y,
+daal,dal,long_a,8,y,
+gaari,gari,long_a,3,y,
+haath,hath,long_a,3,y,
+kaatni,katni,long_a,1,y,
+khaad,khad,long_a,7,y,
+raat,rat,long_a,7,y,
+yaad,yad,long_a,7,y,
+achi,achee,long_i,1,y,"less common than -i, but used"
+angrezi,angrezee,long_i,2,y,"less common than -i, but used"
+banti,bantee,long_i,4,y,"less common than -i, but used"
+bijli,bijlee,long_i,1,y,"less common than -i, but used"
+dasti,dastee,long_i,5,y,"less common than -i, but used"
+gaari,gaaree,long_i,2,y,"less common than -i, but used"
+garmi,garmee,long_i,3,y,"less common than -i, but used"
+honi,honee,long_i,2,y,"less common than -i, but used"
+hoti,hotee,long_i,6,y,"less common than -i, but used"
+jaldi,jaldee,long_i,7,y,"less common than -i, but used"
+jati,jatee,long_i,4,y,"less common than -i, but used"
+kaatni,kaatnee,long_i,2,y,"less common than -i, but used"
+kahani,kahanee,long_i,5,y,"less common than -i, but used"
+khali,khalee,long_i,4,y,"less common than -i, but used"
+khareedari,khareedaree,long_i,2,y,"less common than -i, but used"
+khareedari,kharidari,long_i,2,y,
+kitni,kitnee,long_i,10,y,"less common than -i, but used"
+neend,nind,long_i,9,y,
+pahari,paharee,long_i,6,y,"less common than -i, but used"
+pani,panee,long_i,19,y,"less common than -i, but used"
+peena,pina,long_i,7,y,
+roti,rotee,long_i,4,y,"less common than -i, but used"
+sahi,sahee,long_i,3,y,"less common than -i, but used"
+tayyari,tayyaree,long_i,2,y,"less common than -i, but used"
+dhoop,dhup,long_u,5,y,
+mazboot,mazbut,long_u,8,y,
+mehfooz,mehfuz,long_u,6,y,
+poochna,puchna,long_u,8,y,
+bachon,bacho,nasal_n,22,y,
+banayein,banaye,nasal_n,8,y,
+banayein,banayen,nasal_n,6,y,
+batayein,bataye,nasal_n,4,y,
+batayein,batayen,nasal_n,1,y,
+dein,de,nasal_n,3,y,
+dein,den,nasal_n,2,y,
+gaindein,gainde,nasal_n,2,y,
+gaindein,gainden,nasal_n,4,y,
+hatayein,hataye,nasal_n,4,y,
+hatayein,hatayen,nasal_n,3,y,
+jayein,jaye,nasal_n,7,y,
+jayein,jayen,nasal_n,2,y,
+kapron,kapro,nasal_n,8,y,
+machharon,machharo,nasal_n,3,y,
+paudon,paudo,nasal_n,1,y,
+pehnein,pehne,nasal_n,2,y,
+pehnein,pehnen,nasal_n,4,y,
+pohanchein,pohanche,nasal_n,2,y,
+pohanchein,pohanchen,nasal_n,5,y,
+rokein,roke,nasal_n,3,y,
+rokein,roken,nasal_n,5,y,
+safhon,safho,nasal_n,7,y,
+sabaq,sabak,q_k,3,y,
+waqfa,wakfa,q_k,3,y,
+bache,bche,vowel_drop,1,y,
+banti,bnti,vowel_drop,1,y,
+bhar,bhr,vowel_drop,3,y,
+bijli,bjli,vowel_drop,3,y,
+chala,chla,vowel_drop,8,y,
+chhat,chht,vowel_drop,4,n,not a spelling I recognise
+dasti,dsti,vowel_drop,1,,unsure: rare word
+dil,dl,vowel_drop,7,y,
+din,dn,vowel_drop,23,y,
+garmi,grmi,vowel_drop,2,y,
+ghar,ghr,vowel_drop,15,y,
+gir,gr,vowel_drop,8,y,
+gulab,glab,vowel_drop,8,y,
+jahaz,jhaz,vowel_drop,9,y,
+jaldi,jldi,vowel_drop,2,y,
+jama,jma,vowel_drop,7,y,
+jane,jne,vowel_drop,1,y,
+jati,jti,vowel_drop,1,y,
+jawab,jwab,vowel_drop,3,y,
+kam,km,vowel_drop,8,y,
+kapre,kpre,vowel_drop,1,y,
+khali,khli,vowel_drop,2,y,
+kis,ks,vowel_drop,9,y,
+lambe,lmbe,vowel_drop,1,y,
+lekin,lekn,vowel_drop,1,,unsure: lkn is the common short form
+naram,nram,vowel_drop,8,y,
+pani,pni,vowel_drop,7,,unsure
+par,pr,vowel_drop,45,y,
+rang,rng,vowel_drop,9,y,
+sabaq,sbaq,vowel_drop,3,y,
+safar,sfar,vowel_drop,17,y,
+sahi,shi,vowel_drop,1,y,
+sakta,skta,vowel_drop,9,y,
+saman,sman,vowel_drop,8,y,
+sawal,swal,vowel_drop,3,y,
+tak,tk,vowel_drop,8,y,
+tarka,trka,vowel_drop,6,y,
+wale,wle,vowel_drop,3,,unsure: waly / wly are more usual
+waqfa,wqfa,vowel_drop,4,y,
+wazan,wzan,vowel_drop,2,y,
+chawal,chaval,w_v,8,,"unsure: v for w is common in Indian-style romanisation, less so in Pakistan"
+jawab,javab,w_v,4,,"unsure: v for w is common in Indian-style romanisation, less so in Pakistan"
+karwana,karvana,w_v,8,,"unsure: v for w is common in Indian-style romanisation, less so in Pakistan"
+sawal,saval,w_v,4,,"unsure: v for w is common in Indian-style romanisation, less so in Pakistan"
+tankhwah,tankhvah,w_v,4,,"unsure: v for w is common in Indian-style romanisation, less so in Pakistan"
+wale,vale,w_v,1,,"unsure: v for w is common in Indian-style romanisation, less so in Pakistan"
+waqfa,vaqfa,w_v,2,,"unsure: v for w is common in Indian-style romanisation, less so in Pakistan"
+waqt,vaqt,w_v,1,,"unsure: v for w is common in Indian-style romanisation, less so in Pakistan"
+wazan,vazan,w_v,8,,"unsure: v for w is common in Indian-style romanisation, less so in Pakistan"

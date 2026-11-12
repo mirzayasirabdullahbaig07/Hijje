@@ -5,7 +5,7 @@
 *Hijje* (ہجے) is the Urdu word for "spelling". The name itself can be written
 hijje, hijjay or hijay, which is the problem this project studies.
 
-> **Status: v0.1, a tested research instrument with a small seed dataset.**
+> **Status: v0.2, a tested research instrument with a small seed dataset.**
 > It makes no research claims yet. The numbers below are a check that the
 > pipeline works. What is missing before a paper is listed under
 > [Limitations](#limitations) and in [docs/RESEARCH_PLAN.md](docs/RESEARCH_PLAN.md).
@@ -21,17 +21,18 @@ correct. Search engines and RAG systems assume each word has one spelling.
 Here is what that assumption costs, on a real run of this code. The passage
 being searched for is:
 
-> *Chawal pakane se pehle unhein aadha ghanta pani mein bhigo dein…*
+> *Machharon se bachne ke liye ghar ke aas paas khara pani jama na hone dein…*
 
 | What the user typed | Exact-match search (BM25) | BM25 with phonetic normalisation |
 |---|---|---|
-| chawal pakane se pehle kitni dair pani mein bhigona chahiye | finds it, rank 1 | finds it, rank 1 |
-| chaval pakany say pehlay kitnee der panee me bigona chahye | **does not find it at all** | finds it, rank 1 |
+| machharon se bachne ka tareeqa | finds it, rank 1 | finds it, rank 1 |
+| macharon say bachny ka tariqa | **does not find it at all** | finds it, rank 1 |
 
-Both lines are the same question. In the second, not one word matches the
-passage letter for letter, so exact-match search returns no results. A RAG
-system built on it would then answer without the passage it needed, and
-nothing in the system would report an error.
+Both lines are the same question. In the second, the only word that still
+matches anything letter for letter is "ka", so exact-match search returns 22
+passages that merely contain "ka", and the right passage is not among them. A
+RAG system built on it would then answer from the wrong passages, and nothing
+in the system would report an error.
 
 ## Why this project
 
@@ -72,7 +73,7 @@ GPU session.
 
 ```mermaid
 flowchart LR
-    Q[Queries] --> V[Variation model<br/>15 rules + word list]
+    Q[Queries] --> V[Variation model<br/>13 rules + word list]
     V --> RQ[Respelled queries<br/>same for every retriever]
     Q --> R
     RQ --> R[Retrievers<br/>bm25 · bm25-l1/l2/l3 · char · fusion · dense]
@@ -125,19 +126,19 @@ works with `--data`.
 ## Results on the seed set
 
 48 passages, 48 queries, 5 respelled versions of each query at each rate,
-seed 13. Full output: [results/seed/summary.md](results/seed/summary.md).
+seed 13, rule version 0.2.0 (after the first native review). Full output: [results/seed/summary.md](results/seed/summary.md).
 A test fails if this table and the saved run disagree.
 
 nDCG@10, where 1.0 is perfect:
 
 | Retriever | Clean | 95% CI | 50% respelled | Drop | 100% respelled | Drop | Worst variant | Stability |
 |---|---|---|---|---|---|---|---|---|
-| bm25 | 0.993 | 0.982–1.000 | 0.919 | 7.4% | 0.634 | 36.2% | 0.634 | 0.275 |
-| bm25-l1 | 0.993 | 0.982–1.000 | 0.963 | 3.0% | 0.861 | 13.3% | 0.789 | 0.352 |
-| bm25-l2 | 0.993 | 0.982–1.000 | 0.985 | 0.7% | 0.970 | 2.2% | 0.962 | 0.690 |
-| bm25-l3 | 0.993 | 0.982–1.000 | 0.993 | 0.0% | 0.993 | 0.0% | 0.993 | 0.878 |
-| char | 0.985 | 0.966–1.000 | 0.970 | 1.6% | 0.962 | 2.3% | 0.935 | 0.491 |
-| fusion | 0.993 | 0.982–1.000 | 0.962 | 3.1% | 0.882 | 11.2% | 0.858 | 0.496 |
+| bm25 | 0.993 | 0.982–1.000 | 0.919 | 7.4% | 0.654 | 34.1% | 0.654 | 0.277 |
+| bm25-l1 | 0.993 | 0.982–1.000 | 0.963 | 3.0% | 0.907 | 8.7% | 0.872 | 0.375 |
+| bm25-l2 | 0.993 | 0.982–1.000 | 0.983 | 1.0% | 0.961 | 3.2% | 0.941 | 0.685 |
+| bm25-l3 | 0.993 | 0.982–1.000 | 0.993 | 0.0% | 0.993 | 0.0% | 0.993 | 0.871 |
+| char | 0.985 | 0.966–1.000 | 0.972 | 1.3% | 0.963 | 2.2% | 0.943 | 0.494 |
+| fusion | 0.993 | 0.982–1.000 | 0.961 | 3.2% | 0.883 | 11.0% | 0.860 | 0.492 |
 
 "50% respelled" means each respellable word was changed with probability 0.5;
 "100%" means every respellable word was changed.
@@ -146,7 +147,7 @@ nDCG@10, where 1.0 is perfect:
 
 - The pipeline works end to end and is reproducible: two runs give identical
   files.
-- Exact-match BM25 loses 36.2% of its score when every respellable word is
+- Exact-match BM25 loses 34.1% of its score when every respellable word is
   respelled, and 7.4% when about half are. The problem is visible even on an
   easy dataset.
 
@@ -163,20 +164,32 @@ nDCG@10, where 1.0 is perfect:
 - **It does not show anything about clean-text quality.** Every retriever is
   near the ceiling on clean queries because the seed set is too easy.
 - **Fusion did not help.** Combining exact BM25, level-2 BM25 and character
-  n-grams scored below level-2 BM25 alone (0.882 against 0.970), because the
+  n-grams scored below level-2 BM25 alone (0.883 against 0.961), because the
   exact-match component votes for wrong passages once its words stop matching.
   This negative result is kept on purpose; which views are worth fusing is an
   open question for the real dataset.
-- **The respellings are synthetic and unreviewed.** Whether they look like
-  what people type is a question for native speakers
-  ([docs/VARIATION_RULES.md](docs/VARIATION_RULES.md)).
+- **The respellings are synthetic and only partly reviewed.** One native
+  speaker has answered for 28 of them so far, and the rules were changed as a
+  result ([docs/VARIATION_RULES.md](docs/VARIATION_RULES.md)). Most are still
+  unchecked.
+- **Level-2 normalisation already misses a spelling that came from a person.**
+  The reviewer said people write "theek" as "theak". That spelling was not in
+  the generator, and level 2 does not match it to "theek" (level 3 does). The
+  first human-supplied variant is the first one the normaliser was not built
+  for.
 
-### Neural baselines
+### Neural baselines (older rules, to be re-run)
+
+> **Out of date.** This run used rule version 0.1.0, which still produced
+> respellings the native reviewer has since rejected (a final "i" written as
+> "y", "v" for "w", "h" dropped). Its numbers are not comparable with the
+> table above, and its word-ending result is the one most likely to change.
+> Re-run the notebook once the rules are settled.
 
 Run once on a free Kaggle GPU on 12 November 2026 with
-`notebooks/dense_baselines.ipynb`: the same 48 queries, the same respellings,
-the same seed. Full output: [results/seed_dense/summary.md](results/seed_dense/summary.md).
-The three non-neural rows came out identical to the laptop run above.
+`notebooks/dense_baselines.ipynb`, on the 48 seed queries with the 0.1.0
+respellings. Full output: [results/seed_dense/summary.md](results/seed_dense/summary.md).
+The three non-neural rows matched the 0.1.0 laptop run exactly.
 
 | Retriever | Clean | 95% CI | 50% respelled | Drop | 100% respelled | Drop | Worst variant | Stability |
 |---|---|---|---|---|---|---|---|---|
@@ -191,7 +204,7 @@ The three non-neural rows came out identical to the laptop run above.
 The neural rows are from a single run and are not covered by the
 reproducibility test, because a model downloaded on another day may differ.
 
-**What the neural run suggests** (hints from 48 queries, to be tested on real data)
+**What that run suggested** (hints from 48 queries and the older rules)
 
 - **No neural model was immune.** All four lost between 10.6% and 19.9% of
   their score when every respellable word was respelled.
@@ -265,7 +278,9 @@ src/hijje/
   cli.py          the `hijje` command
 data/seed/        48 passages, 48 queries, labels, protected loanwords
 results/seed/     reference output of the seed run
-review/seed.csv   review sheet generated from that run, waiting to be filled
+review/seed.csv   review sheet for the current rules, waiting to be filled
+review/round1_native.csv       round 1: a native speaker's answers on the 0.1.0 respellings
+review/seed_ai_firstpass.csv   round 1: an AI assistant's guesses on the same sheet; not a review
 tests/            unit tests, reproducibility checks, README-vs-results check
 docs/
   RESEARCH_PLAN.md     research questions, data plan, threats, milestones
@@ -298,7 +313,8 @@ their required `query:` / `passage:` prefixes automatically.
 
 1. **The seed set is tiny, easy and AI-drafted.** 48 passages cannot support
    any conclusion. See [data/seed/README.md](data/seed/README.md).
-2. **The respellings are synthetic and not yet reviewed by native speakers.**
+2. **The respellings are synthetic.** One native speaker has reviewed 28 of
+   them; a full review by two people is still needed.
 3. **Normalisation is favoured by construction** on synthetic variants. Only
    human-written variants can test it fairly.
 4. **Documents are never respelled.** Real corpora are inconsistent too.
@@ -313,7 +329,7 @@ their required `query:` / `passage:` prefixes automatically.
 | | Milestone | State |
 |---|---|---|
 | M0 | Tested instrument and seed run | done |
-| M1 | Rules reviewed by two native speakers | next |
+| M1 | Rules reviewed by two native speakers | round 1 done by one reviewer |
 | M2 | Dense baselines on the seed set | done |
 | M3 | Literature review of 20–30 papers | |
 | M4 | Real corpus with a clear licence | |

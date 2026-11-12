@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hijje"
-version = "0.1.0"
+version = "0.2.0"
 description = "Measuring and fixing spelling-variation failures in Roman Urdu retrieval"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "Syeda Faiqa Fiaz" }]
+authors = [{ name = "Mirza Yasir Abdullah Baig" }]
 keywords = ["roman-urdu", "information-retrieval", "rag", "robustness", "low-resource-nlp"]
 dependencies = [
     "numpy>=1.23",
