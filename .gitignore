@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Experiment outputs are ignored by default.
+# The seed run is kept as the reference output that tests of reproducibility compare against.
+results/*
+!results/seed/
+
+# Model and embedding caches
+*.npy
+*.pt
+.cache/
