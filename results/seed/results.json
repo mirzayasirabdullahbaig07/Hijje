@@ -1,6 +1,6 @@
 {
   "meta": {
-    "hijje_version": "0.2.0",
+    "hijje_version": "0.2.1",
     "python": "3.13.18",
     "dataset": {
       "name": "seed",

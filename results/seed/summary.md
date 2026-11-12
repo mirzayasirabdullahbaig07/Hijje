@@ -1,6 +1,6 @@
 # Hijje evaluation: seed
 
-48 documents, 48 queries, 5 respelled variants per query per rate, seed 13, hijje 0.2.0.
+48 documents, 48 queries, 5 respelled variants per query per rate, seed 13, hijje 0.2.1.
 
 ## Robustness (nDCG@10)
 

@@ -118,6 +118,7 @@ hijje collisions --data data/seed             # which different words get merged
 hijje validate --data path/to/dataset         # check your own dataset
 hijje review-sheet --variants results/seed/variants.jsonl --out review/seed.csv
 hijje review-stats --sheet review/seed.csv
+hijje attested --pairs lexicon.tsv --show pani  # compare the rules with spellings people wrote
 ```
 
 Any dataset in BEIR layout (`corpus.jsonl`, `queries.jsonl`, `qrels.tsv`)
@@ -126,7 +127,7 @@ works with `--data`.
 ## Results on the seed set
 
 48 passages, 48 queries, 5 respelled versions of each query at each rate,
-seed 13, rule version 0.2.0 (after the first native review). Full output: [results/seed/summary.md](results/seed/summary.md).
+seed 13, hijje 0.2.1 (rules last changed in 0.2.0, after the first native review). Full output: [results/seed/summary.md](results/seed/summary.md).
 A test fails if this table and the saved run disagree.
 
 nDCG@10, where 1.0 is perfect:
@@ -261,6 +262,7 @@ specific doubt a reviewer would raise.
 | **Per-rule impact table** | Shows which kind of respelling hurts which retriever, which is what tells you what to fix. | Only the overall drop. |
 | **BEIR file layout** | Any BEIR-format dataset plugs in unchanged, and other people's tools can read this project's data. | A custom format. |
 | **Native-speaker review sheet** | Turns "these rules look plausible" into a measured precision per rule, with agreement between reviewers. | Trusting the rule author. |
+| **Check against human-written spellings** (`hijje attested`) | A public dataset holds Roman spellings of 30,000 Urdu words written by native speakers. Comparing the rules with it shows, for every rule, what share of its respellings a person also wrote, on far more words than two reviewers can read. | Review sheets only. They are slower and cover a few hundred respellings. |
 
 ## Project layout
 
@@ -275,6 +277,7 @@ src/hijje/
   evaluate.py     the robustness experiment
   report.py       Markdown report
   review.py       native-speaker review sheet and its statistics
+  attested.py     compares the rules with spellings written by people
   cli.py          the `hijje` command
 data/seed/        48 passages, 48 queries, labels, protected loanwords
 results/seed/     reference output of the seed run
@@ -286,8 +289,10 @@ docs/
   RESEARCH_PLAN.md     research questions, data plan, threats, milestones
   RELATED_WORK.md      reading list with what was and was not verified
   VARIATION_RULES.md   every rule, its known weaknesses, how to review it
+  DATASETS.md          candidate datasets, their licences and doubts
 notebooks/
   dense_baselines.ipynb  runs neural retrievers on a free GPU
+  dakshina_check.ipynb   checks the rules against the Dakshina spellings (not run yet)
 ```
 
 ## Dense models on Kaggle or Colab
@@ -332,7 +337,7 @@ their required `query:` / `passage:` prefixes automatically.
 | M1 | Rules reviewed by two native speakers | round 1 done by one reviewer |
 | M2 | Dense baselines on the seed set | done |
 | M3 | Literature review of 20–30 papers | |
-| M4 | Real corpus with a clear licence | |
+| M4 | Real corpus with a clear licence | candidates listed in [docs/DATASETS.md](docs/DATASETS.md); none downloaded yet |
 | M5 | 300+ queries with relevance labels | |
 | M6 | Human-written spelling variants, 5+ writers per query | |
 | M7 | Full experiments | |

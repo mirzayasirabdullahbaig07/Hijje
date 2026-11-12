@@ -8,6 +8,7 @@
     hijje eval --data data/seed --out results/seed
     hijje review-sheet --variants results/seed/variants.jsonl --out review/seed.csv
     hijje review-stats --sheet review/seed.csv
+    hijje attested --pairs lexicon.tsv --out results/attested --show pani theek
 """
 
 from __future__ import annotations
@@ -18,6 +19,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from .attested import analyze, expand_paths
+from .attested import to_markdown as attested_markdown
 from .data import load_dataset, validate
 from .evaluate import EvalConfig, evaluate
 from .normalize import LEVEL_NAMES, LEVELS, normalize_text, normalize_word
@@ -83,6 +86,30 @@ def cmd_review_stats(args) -> int:
         s = stats[rule]
         share = "–" if s["share_natural"] is None else f"{100 * s['share_natural']:.0f}%"
         print(f"| {rule} | {s['reviewed']} | {s['natural']} | {share} | {s['unreviewed']} |")
+    return 0
+
+
+def cmd_attested(args) -> int:
+    files = expand_paths(args.pairs)
+    missing = [f for f in files if not Path(f).is_file()]
+    if missing:
+        print("error: file not found: " + ", ".join(missing), file=sys.stderr)
+        return 1
+    result = analyze(files, show=args.show)
+    if not result["summary"]["native_words"]:
+        print("error: no usable (native word, Latin spelling) pairs in: " + ", ".join(files), file=sys.stderr)
+        for reason, n in sorted(result["read"].items()):
+            print(f"  {reason}: {n}", file=sys.stderr)
+        return 1
+    report = attested_markdown(result, top=args.top)
+    if args.out:
+        out = Path(args.out)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "attested.md").write_text(report, encoding="utf-8")
+        (out / "attested.json").write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(report)
+    if args.out:
+        print(f"written: {Path(args.out) / 'attested.md'}, {Path(args.out) / 'attested.json'}")
     return 0
 
 
@@ -187,6 +214,14 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("review-stats", help="summarise a filled-in review sheet per rule")
     p.add_argument("--sheet", required=True)
     p.set_defaults(func=cmd_review_stats)
+
+    p = sub.add_parser("attested", help="check the rules against spellings written by people")
+    p.add_argument("--pairs", nargs="+", required=True,
+                   help="TSV files: native word, Latin spelling, optional count (Dakshina format)")
+    p.add_argument("--out", help="folder for attested.md and attested.json")
+    p.add_argument("--top", type=int, default=40, help="how many variation patterns to print")
+    p.add_argument("--show", nargs="*", default=[], help="Latin spellings to look up, e.g. pani theek")
+    p.set_defaults(func=cmd_attested)
 
     p = sub.add_parser("validate", help="check a dataset")
     p.add_argument("--data", required=True)

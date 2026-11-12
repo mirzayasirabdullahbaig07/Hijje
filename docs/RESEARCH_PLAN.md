@@ -56,14 +56,12 @@ The 48-passage seed set is only a pipeline check. The study needs thousands of
 passages, otherwise false merges cannot hurt and level 3 will always look
 perfect.
 
-Candidates to investigate (availability and licence **not yet verified**):
+Candidates, with what is and is not known about each, are in `DATASETS.md`:
+Dakshina (human-written Roman spellings of Urdu words and sentences, CC BY-SA
+4.0), Roman-Urdu-Parl, Urdu MS MARCO and UQA. None has been downloaded yet.
 
-- Roman-Urdu-Parl, a parallel Urdu / Roman Urdu corpus. The LoResMT 2025
-  transliteration paper reports using 6.3 million sentence pairs from it.
-- Urdu question-answering or passage-ranking datasets (for example the UQA
-  dataset used by DR-RAG), romanised by a transliteration model and then
-  spot-checked by hand.
-- Roman Urdu text you collect yourself from public pages whose terms allow it.
+Roman Urdu text you collect yourself from public pages whose terms allow it
+remains an option, and is the only source of chat-style writing.
 
 Decision rule: prefer a source with an explicit licence that permits
 redistribution, because a benchmark that cannot be shared cannot be cited.

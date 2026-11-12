@@ -1,8 +1,0 @@
-numpy>=1.23
-scikit-learn>=1.2
-
-[dense]
-sentence-transformers>=2.7
-
-[dev]
-pytest>=7

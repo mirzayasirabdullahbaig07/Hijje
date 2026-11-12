@@ -9,7 +9,7 @@ below); most of it is still unchecked, and nothing has been counted from a
 corpus.** Treat every number produced with them as provisional until the
 review described in this file is complete.
 
-Current rule version: **0.2.0**.
+Rules last changed in version **0.2.0**.
 
 ## The rules
 
@@ -73,6 +73,17 @@ Known weaknesses, so that a reviewer does not have to rediscover them:
    longer generated.
 6. **No frequencies.** The model says a respelling is possible, not how common
    it is.
+
+## Checking the rules against a dataset
+
+A faster and larger check than a review sheet: `hijje attested` compares the
+rules with Roman spellings that native speakers wrote for 30,000 Urdu words
+in the Dakshina dataset (see `DATASETS.md`). Run
+`notebooks/dakshina_check.ipynb` on Kaggle. It has **not been run yet**, so
+there are no numbers from it in this repository.
+
+It does not replace the review below. The dataset's writers may not be from
+Pakistan, and they wrote carefully, so chat short forms will be missing.
 
 ## How to review the rules (native speaker, about one hour)
 
