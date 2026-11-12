@@ -1,6 +1,6 @@
 # Hijje
 
-**Measuring, and fixing, what happens to search when Roman Urdu is spelled differently.**
+**Measuring, and fixing, what happens to search when Roman Urdu is spelled differently**
 
 *Hijje* (ہجے) is the Urdu word for "spelling". The name itself can be written
 hijje, hijjay or hijay, which is the problem this project studies.
