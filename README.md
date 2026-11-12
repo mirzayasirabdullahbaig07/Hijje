@@ -189,8 +189,12 @@ nDCG@10, where 1.0 is perfect:
 
 Run once on a free Kaggle GPU on 12 November 2026 with
 `notebooks/dense_baselines.ipynb`, on the 48 seed queries with the 0.1.0
-respellings. Full output: [results/seed_dense/summary.md](results/seed_dense/summary.md).
-The three non-neural rows matched the 0.1.0 laptop run exactly.
+respellings. Only the summary printed by that run was kept:
+[results/seed_dense/summary.md](results/seed_dense/summary.md), restored from
+the notebook's output. The run's `results.json` and `variants.jsonl` were not
+saved, so the per-query numbers behind this table cannot be re-checked until
+the notebook is run again. The three non-neural rows matched the 0.1.0 laptop
+run exactly.
 
 | Retriever | Clean | 95% CI | 50% respelled | Drop | 100% respelled | Drop | Worst variant | Stability |
 |---|---|---|---|---|---|---|---|---|

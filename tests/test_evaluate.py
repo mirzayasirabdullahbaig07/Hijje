@@ -115,6 +115,28 @@ def test_readme_quotes_the_committed_results(seed_dir):
         assert row in readme, f"README is out of date for: {row}"
 
 
+def test_readme_neural_table_is_backed_by_the_saved_summary(seed_dir):
+    """The neural rows quoted in the README must exist in results/seed_dense.
+
+    This guards against the folder holding some other run's files.
+    """
+    root = seed_dir.parent.parent
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    section = readme.split("### Neural baselines")[1].split("## Why these techniques")[0]
+    rows = [line for line in section.splitlines() if line.startswith("| dense:")]
+    assert rows, "the README quotes no neural rows"
+    folder = root / "results" / "seed_dense"
+    saved = (folder / "summary.md").read_text(encoding="utf-8")
+    for row in rows:
+        assert row in saved, f"results/seed_dense/summary.md does not contain: {row}"
+    detail = folder / "results.json"
+    if detail.exists():
+        names = json.loads(detail.read_text(encoding="utf-8"))["meta"]["retrievers"]
+        assert any(name.startswith("dense:") for name in names), (
+            "results/seed_dense/results.json holds no neural model: it is from another run"
+        )
+
+
 def test_report_contains_every_retriever_and_rule(tiny_dir):
     ds = load_dataset(tiny_dir)
     result = evaluate(ds, ["bm25", "char"], FAST)
