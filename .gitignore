@@ -22,3 +22,5 @@ data/dakshina_ur/
 *.npy
 *.pt
 .cache/
+
+results/dakshina_*/variants.jsonl
