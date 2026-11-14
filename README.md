@@ -5,10 +5,12 @@
 *Hijje* (ہجے) is the Urdu word for "spelling". The name itself can be written
 hijje, hijjay or hijay, which is the problem this project studies.
 
-> **Status: v0.3, a tested research instrument with a first real-text result.**
+> **Status: v0.4, a tested research instrument with a first real-text result.**
 > New in 0.3: respelling that uses only spellings people wrote, and a test
-> collection of 9,759 human-written sentences. The result is a first look, not
-> a finished study. What is missing before a paper is listed under
+> collection of 9,759 human-written sentences. New in 0.4: the normalisers are
+> measured directly on 30,000 human-spelled words, a fifth normaliser (level 4: vowel classes)
+> and a test of how query length changes the picture. The results are a first
+> look, not a finished study. What is missing before a paper is listed under
 > [Limitations](#limitations) and in [docs/RESEARCH_PLAN.md](docs/RESEARCH_PLAN.md).
 
 ---
@@ -121,6 +123,7 @@ hijje review-sheet --variants results/seed/variants.jsonl --out review/seed.csv
 hijje review-stats --sheet review/seed.csv
 hijje attested --pairs lexicon.tsv --show pani  # compare the rules with spellings people wrote
 hijje build-dakshina --src <ur folder> --out data/dakshina_ur   # real-text test collection
+hijje normcheck --split train=<f> --split test=<f>               # score the normalisers on human spellings
 hijje eval --data data/seed --variation "attested:<lexicon.tsv>" --out results/x   # respell with people's spellings
 ```
 
@@ -218,6 +221,74 @@ compared word by word with the Dakshina spellings
 - The annotators' country is not stated.
 - One collection, one seed, one language variety: a first look, not a
   benchmark.
+
+### Choosing a normaliser: measured on words, then on search
+
+**Directly on human spellings.** `hijje normcheck` scores each normaliser
+without a search engine. Dakshina's word lexicon is split into train (25,000
+words), dev and test (2,500 each), and the three sets contain different
+words. For every level it reports (a) *unified pairs*: of all pairs of
+different spellings that people wrote for the same word, the share that get one
+key, and (b) *extra shared keys*: the share of words whose key another word
+also has, beyond what happens with no normalisation. (b) is an upper bound on
+false merges. Test words, full table in [results/normcheck/normcheck.md](results/normcheck/normcheck.md):
+
+| Level | Unified pairs | Extra shared keys |
+|---|---|---|
+| 1 length | 13.1% | +2.8 pts |
+| 2 phonetic | 31.2% | +13.9 pts |
+| 3 skeleton | 79.1% | +43.8 pts |
+| 4 vowelclass | 60.3% | +25.4 pts |
+
+Level 2 joins few of the spellings people really write; level 3 joins most but
+makes four words in ten share a key with another word.
+
+**Where level 4 comes from.** The data says short vowels (a, e, i, u) are where
+people differ most, and level 3 handles them by deleting every vowel. Level 4
+instead turns every vowel run into one vowel class and keeps the word's last
+vowel: `kitni`, `katni` and `ketni` all become `k*tn-i`, while `ka`, `ki` and
+`ko` stay different. Seven variants were tried on the train words. The rule
+fixed beforehand (best unified share with extra shared keys at most half of
+level 3's) was met by none of them; the closest was 3 points over the limit. I then
+chose by the best unified share per extra shared key. That change of rule was
+made after seeing the numbers, so the choice is exploratory. Train, dev and
+test agree to within about a point, so it is not a quirk of one split.
+
+**On search.** Same collection and respelling as above; each cell is nDCG@10
+on clean queries / on queries with every changeable word respelled by people's
+spellings. Level 4 was chosen on words, not on this collection, but the
+respelling still comes from the same lexicon (train file), so treat this as a
+check, not independent proof.
+
+| Queries | bm25 | bm25-l2 | bm25-l3 | bm25-l4 |
+|---|---|---|---|---|
+| 2 words | 0.973 / 0.427 | 0.943 / 0.632 | 0.837 / 0.712 | 0.918 / 0.723 |
+| 3 words | 0.987 / 0.481 | 0.978 / 0.742 | 0.948 / 0.866 | 0.972 / 0.865 |
+| 4 words | 0.993 / 0.533 | 0.988 / 0.836 | 0.977 / 0.938 | 0.985 / 0.934 |
+| 6 words | 0.996 / 0.586 | 0.993 / 0.924 | 0.987 / 0.976 | 0.990 / 0.977 |
+
+1. **Short queries suffer most.** With two words, exact matching keeps only
+   0.427 of 0.973 when the words are respelled; with six it keeps 0.586 of 0.996.
+   Typed queries are usually short.
+2. **Level 3's false merges cost most on short queries.** On two-word queries
+   it falls to 0.837 on *clean* queries. Level 4 gets 0.918 clean and is as
+   good or better once respelled (0.723 against 0.712). At three words the two
+   tie when respelled and level 4 is ahead on clean (0.972 against 0.948).
+3. **On longer queries it is a trade.** At four words level 4 is 0.008 better
+   on clean queries and 0.004 worse on respelled ones. That held on three
+   collections built with different seeds (13, 7, 21): 0.006 to 0.009 better clean,
+   0.002 to 0.004 worse respelled
+   ([results/dakshina_ur_sensitivity](results/dakshina_ur_sensitivity)).
+4. **Level 4 does not undo dropped vowels.** `karna` and `krna` stay different
+   keys. With the hand-written rules, which include vowel dropping, level 3 is
+   ahead (0.972 against 0.959 respelled,
+   [results/dakshina_ur_levels_rules](results/dakshina_ur_levels_rules/summary.md)). If chat-style
+   abbreviations are expected, level 3 is the safer choice; the Dakshina data
+   cannot say how common they are.
+
+Neither level wins everywhere, so the honest summary is a trade-off curve, not
+a single best normaliser. Level 4 looks like the better default for short
+queries on careful text; that is a hypothesis to test on real user queries.
 
 **Reproduce it.** The Dakshina files are CC BY-SA 4.0, and the repository is
 MIT, so the data is not included; the built collection is listed in
@@ -364,7 +435,7 @@ specific doubt a reviewer would raise.
 | **BM25** as the main baseline | It is the standard lexical baseline, it needs no training, and exact matching is the thing spelling variation breaks, so it shows the problem most clearly. | Starting with neural models only. That would hide whether the failure is about spelling or about the model. |
 | **BM25 written out in plain Python** | About 40 lines, no hidden preprocessing, and it accepts any analyzer, which is how the normalised versions are built without duplicating code. | A library. Faster, but its tokeniser and defaults would be one more unexplained difference between systems. For large corpora, swap one in behind the same interface. |
 | **Character n-gram TF-IDF** | A respelled word shares most of its letter sequences with the original, so this tolerates spelling changes with no knowledge of Urdu. It is the baseline the Urdu-specific rules must beat to justify existing. | Edit-distance matching. Too slow to run against every word of a large index. |
-| **Phonetic normalisation at three levels** | Language knowledge written as rules is free, fast and inspectable. Three levels turn "does normalisation help?" into "how much normalisation helps before false merges hurt?", which is the more useful question. | One fixed normaliser. That would give a single number and hide the trade-off. |
+| **Phonetic normalisation at four strengths** | Language knowledge written as rules is free, fast and inspectable. Several strengths turn "does normalisation help?" into "how much normalisation helps before false merges hurt?", which is the more useful question. | One fixed normaliser. That would give a single number and hide the trade-off. |
 | **Rules without a word list in the normaliser** | The variant generator has a word list. A normaliser built from the same list would solve the synthetic test by memorising it. | A dictionary-based spell corrector. There is no standard spelling to correct towards. |
 | **Reciprocal Rank Fusion** | It combines retrievers using ranks only, so BM25 scores and cosine similarities can be mixed without calibrating them. | Weighted score sums. They need tuned weights, and there is no development set yet to tune on. |
 | **Dense multilingual models** (optional) | They are what RAG systems deploy in practice, so their robustness is the number practitioners need. | Leaving them out. The study would then say nothing about real systems. |
@@ -379,6 +450,7 @@ specific doubt a reviewer would raise.
 | **Native-speaker review sheet** | Turns "these rules look plausible" into a measured precision per rule, with agreement between reviewers. | Trusting the rule author. |
 | **Respelling from people's spellings, weighted by how many wrote each** | Invented rules reproduce only part of real variation, and a normaliser tested on them looks better than it is (measured above). Sampling only spellings that a person wrote for the same word removes the author's guesses from the test. | Keeping the rules as the main generator. They stay as an option for chat-style forms that the data lacks. |
 | **A test collection built from human-written sentences** | Real text, a clear licence, and a spelling dataset to respell queries with, all from one source and free. | Waiting for a collection with real user queries. None with a clear licence was found; the limits are stated instead. |
+| **Normalisers scored on a word-disjoint train/dev/test split** | A normaliser tuned on the words it is judged on looks better than it is. Dakshina's lexicon splits are different words, so candidates are chosen on train and reported on test. | Judging a normaliser only through search results on one small collection. |
 | **Check against human-written spellings** (`hijje attested`) | A public dataset holds Roman spellings of 30,000 Urdu words written by native speakers. Comparing the rules with it shows, for every rule, what share of its respellings a person also wrote, on far more words than two reviewers can read. | Review sheets only. They are slower and cover a few hundred respellings. |
 
 ## Project layout
@@ -396,11 +468,13 @@ src/hijje/
   review.py       native-speaker review sheet and its statistics
   attested.py     compares the rules with spellings written by people
   attested_model.py  respells queries using only spellings people wrote
+  normcheck.py    scores the normalisers directly on human spellings
   dakshina.py     builds a test collection from the Dakshina Urdu sentences
   cli.py          the `hijje` command
 data/seed/        48 passages, 48 queries, labels, protected loanwords
 results/seed/     reference output of the seed run
-results/dakshina_ur_*/   real-text runs: people's spellings, rules, and both
+results/dakshina_ur_*/   real-text runs: people's spellings, rules, both, all five levels, query length and seed
+results/normcheck/   the normalisers scored on 30,000 human-spelled words
 results/dakshina_lexicon, dakshina_sentences/   rules checked against people's spellings
 review/seed.csv   review sheet for the current rules, waiting to be filled
 review/round1_native.csv       round 1: a native speaker's answers on the 0.1.0 respellings

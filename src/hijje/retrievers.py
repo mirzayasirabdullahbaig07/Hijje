@@ -43,7 +43,7 @@ class BM25(BaseRetriever):
 
     Written out in plain Python on purpose: it is ~40 lines, has no hidden
     preprocessing, and takes any analyzer, which is how the normalised
-    variants (bm25-l1, bm25-l2, bm25-l3) are built. For corpora with millions
+    variants (bm25-l1 to bm25-l4) are built. For corpora with millions
     of passages, swap in a compiled implementation behind the same interface.
     """
 
@@ -211,7 +211,7 @@ def build_retriever(spec: str) -> BaseRetriever:
     """Create a retriever from a short name.
 
     bm25                 exact-token BM25
-    bm25-l1 / -l2 / -l3  BM25 over normalised tokens (see normalize.py)
+    bm25-l1 .. -l4       BM25 over normalised tokens (see normalize.py)
     char                 character n-gram TF-IDF
     fusion               RRF of bm25 + bm25-l2 + char
     rrf:a+b+c            RRF of any listed retrievers
@@ -220,7 +220,7 @@ def build_retriever(spec: str) -> BaseRetriever:
     s = spec.strip()
     if s == "bm25":
         return BM25()
-    m = re.fullmatch(r"bm25-l([123])", s)
+    m = re.fullmatch(r"bm25-l([1234])", s)
     if m:
         return BM25(analyzer=partial(analyze, level=int(m.group(1))), name=s)
     if s == "char":

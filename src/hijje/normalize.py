@@ -1,4 +1,4 @@
-"""Phonetic normalisation of Roman Urdu words, at three strengths.
+"""Phonetic normalisation of Roman Urdu words, at four strengths.
 
 Roman Urdu has no standard spelling, so one word is written many ways
 ("kya", "kia", "kiya"). A normaliser maps the spellings of a word to one key
@@ -13,6 +13,15 @@ guessed:
     1  length    vowel length and doubled letters   kaam = kam, achha = acha
     2  phonetic  + sound classes and endings        kya = kia = kiya, mujhe = mujhy
     3  skeleton  + drop vowels (Soundex-like)       karna = krna, bohat = bht
+    4  vowelclass  level 2, then every vowel run is   kitni = katni = ketni
+                   one vowel, the last vowel is kept
+
+Level 4 was added in 0.4.0 after measuring levels 1-3 on human spellings
+(``hijje normcheck``): level 2 unifies few spellings of the same word, level 3
+merges a great many different words, and the short vowels (a / e / i / u) are
+where people differ most. Level 4 treats those vowels as one class but keeps
+where they are and how a word ends, which separates ``ka`` / ``ki`` / ``ke``
+(different grammatical words) while joining ``kitni`` and ``katni``.
 
 The normaliser is rule-based and uses no word list. That is deliberate: the
 variant generator in ``variation.py`` has a word list, and a normaliser built
@@ -25,8 +34,8 @@ import re
 
 from .text import tokenize
 
-LEVELS = (0, 1, 2, 3)
-LEVEL_NAMES = {0: "none", 1: "length", 2: "phonetic", 3: "skeleton"}
+LEVELS = (0, 1, 2, 3, 4)
+LEVEL_NAMES = {0: "none", 1: "length", 2: "phonetic", 3: "skeleton", 4: "vowelclass"}
 
 _CONS = "bcdfghjklmnpqrstvwxz"
 _ASCII_WORD = re.compile(r"^[a-z]+$")
@@ -72,6 +81,23 @@ def _skeleton(w: str) -> str:
     return key.replace("C", "ch").replace("S", "sh")
 
 
+_VOWEL_RUN = re.compile(r"[aeiouy]+")
+
+
+def _vowelclass(w: str) -> str:
+    """Every vowel run becomes '*'; the word's last vowel is written after a hyphen.
+
+    'kitni' and 'katni' both give 'k*tn-i'. The final vowel is kept apart
+    ('k-a', 'k-i') so that the grammatical endings stay different. '*' and '-'
+    are not letters, so the key passes through unchanged if it is normalised
+    again (the function stays idempotent) and can never be rewritten by the
+    letter rules.
+    """
+    if w and w[-1] in "aeiou":
+        return _VOWEL_RUN.sub("*", w[:-1]) + "-" + w[-1]
+    return _VOWEL_RUN.sub("*", w)
+
+
 def normalize_word(word: str, level: int) -> str:
     """Return the normalisation key of one word at the given level."""
     if level not in LEVELS:
@@ -88,6 +114,8 @@ def normalize_word(word: str, level: int) -> str:
         w = new
     if level == 3:
         w = _skeleton(w)
+    elif level == 4:
+        w = _vowelclass(w)
     return w
 
 

@@ -9,6 +9,7 @@
     hijje review-sheet --variants results/seed/variants.jsonl --out review/seed.csv
     hijje review-stats --sheet review/seed.csv
     hijje attested --pairs lexicon.tsv --out results/attested --show pani theek
+    hijje normcheck --split train=<f> --split test=<f> --out results/normcheck
     hijje build-dakshina --src <dakshina ur folder> --out data/dakshina_ur
     hijje eval --data data/dakshina_ur --variation "attested:<lexicon files>" --out results/dakshina_ur
 """
@@ -27,6 +28,8 @@ from .dakshina import build_collection
 from .attested import to_markdown as attested_markdown
 from .data import load_dataset, validate
 from .evaluate import EvalConfig, evaluate
+from .normcheck import check as normcheck_run
+from .normcheck import to_markdown as normcheck_markdown
 from .normalize import LEVEL_NAMES, LEVELS, normalize_text, normalize_word
 from .report import to_markdown
 from .review import build_sheet, summarize
@@ -219,6 +222,32 @@ def cmd_eval(args) -> int:
     return 0
 
 
+def cmd_normcheck(args) -> int:
+    splits = {}
+    for item in args.split:
+        name, sep, files = item.partition("=")
+        if not sep or not files:
+            print(f"error: --split needs NAME=FILE[,FILE...], got {item!r}", file=sys.stderr)
+            return 2
+        paths = expand_paths([f for f in files.split(",") if f])
+        missing = [f for f in paths if not Path(f).is_file()]
+        if missing:
+            print("error: file not found: " + ", ".join(missing), file=sys.stderr)
+            return 1
+        table, _ = load_attested(paths)
+        if not table:
+            print(f"error: no usable pairs in {files}", file=sys.stderr)
+            return 1
+        splits[name] = table
+    report = normcheck_markdown(normcheck_run(splits))
+    if args.out:
+        out = Path(args.out)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "normcheck.md").write_text(report, encoding="utf-8")
+    print(report)
+    return 0
+
+
 def cmd_build_dakshina(args) -> int:
     try:
         info = build_collection(args.src, args.out, args.n_queries, args.query_len, args.seed)
@@ -292,6 +321,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-rule-impact", action="store_true", help="skip the per-rule analysis")
     p.add_argument("--variation", default="rules", help="rules (default), attested:FILE or attested+rules:FILE")
     p.set_defaults(func=cmd_eval)
+
+    p = sub.add_parser("normcheck", help="score the normalisers on spellings people wrote")
+    p.add_argument("--split", action="append", required=True, metavar="NAME=FILE[,FILE]",
+                   help="a set of words to report on; repeat for dev, test, ... Collisions are measured against all splits together")
+    p.add_argument("--out")
+    p.set_defaults(func=cmd_normcheck)
 
     p = sub.add_parser("build-dakshina", help="build a test collection from the Dakshina Urdu sentences")
     p.add_argument("--src", required=True, help="Dakshina Urdu folder (contains 'romanized') or the rejoined .tsv file")

@@ -140,3 +140,71 @@ def test_readme_generator_comparison_matches_the_saved_runs():
         result = json.loads((RESULTS / f"dakshina_ur_{variation}" / "results.json").read_text(encoding="utf-8"))
         cells = [f"{result['summary'][n]['respelled_100']['drop_pct']:.1f}%" for n in result["meta"]["retrievers"]]
         assert " | ".join(cells) in readme, (variation, cells)
+
+
+def _md_rows(path):
+    text = path.read_text(encoding="utf-8").split("## Robustness")[1].split("## Recall")[0]
+    rows = {}
+    for line in text.splitlines():
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if cells and cells[0].startswith("bm25"):
+            rows[cells[0]] = (cells[1], cells[5])    # clean, 100% respelled
+    return rows
+
+
+def test_readme_query_length_table_matches_the_saved_runs():
+    readme = (RESULTS.parent / "README.md").read_text(encoding="utf-8")
+    sources = {
+        2: RESULTS / "dakshina_ur_sensitivity" / "len2_seed13_human.md",
+        3: RESULTS / "dakshina_ur_sensitivity" / "len3_seed13_human.md",
+        4: RESULTS / "dakshina_ur_levels_human" / "summary.md",
+        6: RESULTS / "dakshina_ur_sensitivity" / "len6_seed13_human.md",
+    }
+    for words, path in sources.items():
+        rows = _md_rows(path)
+        cells = " | ".join(f"{rows[n][0]} / {rows[n][1]}" for n in ("bm25", "bm25-l2", "bm25-l3", "bm25-l4"))
+        assert f"| {words} words | {cells} |" in readme, f"README is out of date for {words}-word queries"
+
+
+def test_readme_normcheck_table_matches_the_saved_report():
+    readme = (RESULTS.parent / "README.md").read_text(encoding="utf-8")
+    report = (RESULTS / "normcheck" / "normcheck.md").read_text(encoding="utf-8")
+    checked = 0
+    for line in report.splitlines():
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if cells and cells[0][:1] in "1234" and len(cells) == 7 and cells[0][1:2] == " ":
+            level = cells[0]
+            row = f"| {level} | {cells[3]} | {cells[6].replace(' pts', ' pts')} |"
+            assert row in readme, f"README is out of date for: {row}"
+            checked += 1
+    assert checked == 4
+
+
+@needs_dakshina
+@pytest.mark.parametrize("variation", ["human", "rules"])
+def test_level4_reference_results_reproduce(tmp_path, variation):
+    from hijje.cli import make_model
+    from hijje.evaluate import EvalConfig, evaluate
+
+    build_collection(DAKSHINA, tmp_path / "data", n_queries=1000)
+    ds = load_dataset(tmp_path / "data")
+    lexicon = str(Path(DAKSHINA) / "lexicons" / "ur.translit.sampled.train.tsv")
+    spec = f"attested:{lexicon}" if variation == "human" else "rules"
+    reference = json.loads((RESULTS / f"dakshina_ur_levels_{variation}" / "results.json").read_text(encoding="utf-8"))
+    cfg = reference["meta"]["config"]
+    config = EvalConfig(k=cfg["k"], rates=tuple(cfg["rates"]), n_variants=cfg["n_variants"],
+                        seed=cfg["seed"], max_edits=cfg["max_edits"], n_boot=cfg["n_boot"])
+    result = evaluate(ds, ["bm25-l4"], config, model=make_model(spec, ds.protected), with_rule_impact=False)
+    for cond in reference["meta"]["conditions"]:
+        assert result["summary"]["bm25-l4"][cond]["ndcg"] == pytest.approx(
+            reference["summary"]["bm25-l4"][cond]["ndcg"], abs=1e-9), cond
+
+
+@needs_dakshina
+def test_normcheck_report_reproduces():
+    from hijje.attested import load_attested
+    from hijje.normcheck import check, to_markdown
+
+    lex = Path(DAKSHINA) / "lexicons"
+    splits = {n: load_attested([str(lex / f"ur.translit.sampled.{n}.tsv")])[0] for n in ("train", "dev", "test")}
+    assert to_markdown(check(splits)) == (RESULTS / "normcheck" / "normcheck.md").read_text(encoding="utf-8")

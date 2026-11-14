@@ -109,6 +109,9 @@ How it is used here:
   spellings people wrote for the same word, weighted by count. The lexicon
   *train* file is used, not the sentences, so a query is never respelled with
   its own passage's spelling.
+- `hijje normcheck` scores the normalisers on the lexicon's own train / dev / test
+  split (different words in each), so a normaliser chosen on train is judged on
+  words it never saw. Summary in `results/normcheck`.
 - Counts in the lexicon are how many annotators gave a spelling. They are not
   usage frequencies. Counts in the sentences are real usage.
 - Not committed: the built collection (`data/dakshina_ur/` is in

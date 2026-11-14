@@ -87,7 +87,7 @@ def test_non_roman_tokens_pass_through():
 
 def test_invalid_level_raises():
     with pytest.raises(ValueError):
-        normalize_word("kya", 4)
+        normalize_word("kya", 5)
 
 
 def test_analyze_and_normalize_text():
@@ -114,9 +114,28 @@ def test_idempotent_on_real_vocabulary_and_its_variants(seed):
 
 def test_stronger_levels_never_split_what_weaker_levels_merged(seed):
     vocab = _vocabulary(seed)
-    for lower, higher in [(1, 2), (2, 3)]:
+    for lower, higher in [(1, 2), (2, 3), (2, 4)]:
         key_at_higher = {}
         for word in vocab:
             low_key = normalize_word(word, lower)
             high_key = normalize_word(word, higher)
             assert key_at_higher.setdefault(low_key, high_key) == high_key, (word, lower, higher)
+
+
+def test_level4_joins_short_vowel_variants_but_keeps_endings_apart():
+    assert len({normalize_word(w, 4) for w in ["kitni", "katni", "ketni"]}) == 1
+    assert len({normalize_word(w, 4) for w in ["mujhe", "majhe", "mujhy"]}) == 1
+    # grammatical endings are different words and must stay different
+    assert len({normalize_word(w, 4) for w in ["ka", "ki", "ko"]}) == 3
+    assert normalize_word("ke", 4) == normalize_word("ki", 4)      # level 2 already treats these as one
+    assert normalize_word("kam", 4) != normalize_word("kama", 4)   # a final vowel is not dropped
+
+
+def test_level4_keeps_what_level3_would_merge_too_eagerly():
+    assert normalize_word("karna", 3) == normalize_word("krna", 3)
+    assert normalize_word("karna", 4) != normalize_word("krna", 4)   # vowel loss is not undone: a stated limit
+
+
+def test_level4_key_cannot_be_rewritten_by_the_letter_rules():
+    key = normalize_word("yh", 4)
+    assert normalize_word(key, 4) == key
