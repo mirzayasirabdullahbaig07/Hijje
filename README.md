@@ -5,9 +5,9 @@
 *Hijje* (ہجے) is the Urdu word for "spelling". The name itself can be written
 hijje, hijjay or hijay, which is the problem this project studies.
 
-> **Status: v0.4, a tested research instrument with a first real-text result.**
+> **Status: v0.5, a tested research instrument with a first real-text result and a kit for collecting real queries.**
 > New in 0.3: respelling that uses only spellings people wrote, and a test
-> collection of 9,759 human-written sentences. New in 0.4: the normalisers are
+> collection of 9,759 human-written sentences. New in 0.5: a volunteer kit (form, loader, pooled judging, evaluation) for collecting real queries; no volunteer data is in the repository yet. New in 0.4: the normalisers are
 > measured directly on 30,000 human-spelled words, a fifth normaliser (level 4: vowel classes)
 > and a test of how query length changes the picture. The results are a first
 > look, not a finished study. What is missing before a paper is listed under
@@ -306,6 +306,30 @@ hijje eval --data data/dakshina_ur --out results/dakshina_ur_human \
 you on Kaggle. To run the tests that compare the saved results with a fresh
 run, set `HIJJE_DAKSHINA_DIR` to the same Urdu folder and run `pytest`.
 
+## Collecting real queries (the volunteer kit)
+
+Everything above uses invented or constructed queries. The step that turns this
+into a paper is real people typing real queries in their own spelling. v0.5 adds
+the tools; no volunteer data has been collected yet.
+
+1. `hijje make-form` writes one HTML page. A volunteer sees a Urdu-script
+   sentence (so no Roman spelling is suggested) and types the search they would
+   use, in Roman Urdu. 40 sentences, about 15 minutes, anonymous, 18+, with a
+   consent box. Answers stay in the browser until the volunteer downloads a CSV.
+2. `hijje collect-build` reads the CSV files, drops and counts unusable rows,
+   and builds a test collection: the 9,759 Dakshina sentences are the passages,
+   each volunteer's query is a query, the sentence it came from is relevant.
+3. `hijje judge-sheet` pools the top results of several retrievers for a person
+   to grade (2 / 1 / 0), because a query may be answered by other sentences too.
+   `hijje judge-export` keeps only the grades so they can be committed.
+4. `hijje real-eval` scores the retrievers per prompt, including the *worst
+   writer* (the unlucky spelling) and *agreement* between writers.
+
+With 8 writers this gives 320 real queries, with 5 or more writers for every
+prompt, which is what milestones M5 and M6 ask for. The full guide, including
+the message to send to volunteers and how to host the form for free, is
+[docs/VOLUNTEER_GUIDE.md](docs/VOLUNTEER_GUIDE.md).
+
 ## Results on the seed set
 
 48 passages, 48 queries, 5 respelled versions of each query at each rate,
@@ -451,6 +475,8 @@ specific doubt a reviewer would raise.
 | **Respelling from people's spellings, weighted by how many wrote each** | Invented rules reproduce only part of real variation, and a normaliser tested on them looks better than it is (measured above). Sampling only spellings that a person wrote for the same word removes the author's guesses from the test. | Keeping the rules as the main generator. They stay as an option for chat-style forms that the data lacks. |
 | **A test collection built from human-written sentences** | Real text, a clear licence, and a spelling dataset to respell queries with, all from one source and free. | Waiting for a collection with real user queries. None with a clear licence was found; the limits are stated instead. |
 | **Normalisers scored on a word-disjoint train/dev/test split** | A normaliser tuned on the words it is judged on looks better than it is. Dakshina's lexicon splits are different words, so candidates are chosen on train and reported on test. | Judging a normaliser only through search results on one small collection. |
+| **Prompts shown in Urdu script, answers typed in Roman** | Showing a Roman sentence would make volunteers copy its spelling, which hides the variation being studied. A sentence in Urdu script leaves the spelling to the writer. | Showing Roman text, or an English question (different words, so spelling of Urdu words could not be compared). |
+| **Pooled relevance judging** | A query can be answered by sentences other than its source. Grading the pooled top results of several retrievers is the standard way to find them without grading the whole corpus. | Counting only the source sentence as relevant, which would punish a retriever for a correct answer. |
 | **Check against human-written spellings** (`hijje attested`) | A public dataset holds Roman spellings of 30,000 Urdu words written by native speakers. Comparing the rules with it shows, for every rule, what share of its respellings a person also wrote, on far more words than two reviewers can read. | Review sheets only. They are slower and cover a few hundred respellings. |
 
 ## Project layout
@@ -469,9 +495,12 @@ src/hijje/
   attested.py     compares the rules with spellings written by people
   attested_model.py  respells queries using only spellings people wrote
   normcheck.py    scores the normalisers directly on human spellings
+  collect.py      volunteer kit: loader, collection builder, pooled judging, evaluation
+  form_template.py  the volunteer form (one self-contained HTML page)
   dakshina.py     builds a test collection from the Dakshina Urdu sentences
   cli.py          the `hijje` command
 data/seed/        48 passages, 48 queries, labels, protected loanwords
+data/real_queries/  the 40 prompt sentence numbers (numbers only, no CC BY-SA text)
 results/seed/     reference output of the seed run
 results/dakshina_ur_*/   real-text runs: people's spellings, rules, both, all five levels, query length and seed
 results/normcheck/   the normalisers scored on 30,000 human-spelled words
@@ -485,6 +514,7 @@ docs/
   RELATED_WORK.md      reading list with what was and was not verified
   VARIATION_RULES.md   every rule, its known weaknesses, how to review it
   DATASETS.md          candidate datasets, their licences and doubts
+  VOLUNTEER_GUIDE.md   how to collect real queries, step by step
 notebooks/
   dense_baselines.ipynb  runs neural retrievers on a free GPU
   dakshina_check.ipynb   downloads the Dakshina Urdu files and checks the rules against them
@@ -538,8 +568,8 @@ their required `query:` / `passage:` prefixes automatically.
 | M2 | Dense baselines on the seed set | done |
 | M3 | Literature review of 20–30 papers | |
 | M4 | Real corpus with a clear licence | first one in use: Dakshina Urdu sentences (CC BY-SA 4.0), constructed queries; a corpus with real user queries is still needed |
-| M5 | 300+ queries with relevance labels | |
-| M6 | Human-written spelling variants, 5+ writers per query | partly: the Dakshina word lexicon gives about 4 spellings per word; whole queries written by several people are still needed |
+| M5 | 300+ queries with relevance labels | kit ready (v0.5); needs about 8 volunteers and a pooled-judging session |
+| M6 | Human-written spelling variants, 5+ writers per query | kit ready (v0.5); also partly: the Dakshina word lexicon gives about 4 spellings per word; whole queries written by several people are still needed |
 | M7 | Full experiments | |
 | M8 | Paper draft | |
 

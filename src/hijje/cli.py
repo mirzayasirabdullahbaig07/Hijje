@@ -9,6 +9,11 @@
     hijje review-sheet --variants results/seed/variants.jsonl --out review/seed.csv
     hijje review-stats --sheet review/seed.csv
     hijje attested --pairs lexicon.tsv --out results/attested --show pani theek
+    hijje make-form --src <ur folder> --prompts data/real_queries/prompt_ids.txt --out form.html
+    hijje collect-build --responses "answers/*.csv" --src <ur folder> --out data/real_built
+    hijje judge-sheet --data data/real_built --src <ur folder> --out judge.csv
+    hijje judge-export --sheet judge.csv --out data/real_queries/judgments.csv
+    hijje real-eval --data data/real_built --out results/real
     hijje normcheck --split train=<f> --split test=<f> --out results/normcheck
     hijje build-dakshina --src <dakshina ur folder> --out data/dakshina_ur
     hijje eval --data data/dakshina_ur --variation "attested:<lexicon files>" --out results/dakshina_ur
@@ -25,6 +30,7 @@ from pathlib import Path
 from .attested import analyze, expand_paths, load_attested
 from .attested_model import AttestedVariation
 from .dakshina import build_collection
+from . import collect
 from .attested import to_markdown as attested_markdown
 from .data import load_dataset, validate
 from .evaluate import EvalConfig, evaluate
@@ -248,6 +254,92 @@ def cmd_normcheck(args) -> int:
     return 0
 
 
+def cmd_make_form(args) -> int:
+    try:
+        ids = collect.read_prompt_ids(args.prompts)
+        info = collect.make_form(args.src, ids, args.out, contact=args.contact, title=args.title)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"form with {info['prompts']} prompts written to {info['out']}")
+    print("It contains CC BY-SA 4.0 sentences (Dakshina). Share it with volunteers, but do not commit it to the MIT repository.")
+    return 0
+
+
+def cmd_collect_build(args) -> int:
+    try:
+        rows, stats = collect.load_responses(args.responses)
+        judgments = collect.load_judgments(args.judgments) if args.judgments else None
+        if not rows:
+            print("error: no usable answers found", file=sys.stderr)
+            for reason, n in sorted(stats.items()):
+                print(f"  {reason}: {n}", file=sys.stderr)
+            return 1
+        info = collect.build_real(rows, args.src, args.out, judgments)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for reason, n in sorted(stats.items()):
+        print(f"{reason}: {n}")
+    per = collect.writers_per_prompt(rows)
+    print(f"writers per prompt: min {min(per.values())}, max {max(per.values())}")
+    spell = collect.spelling_report(rows)
+    if spell["mean_word_overlap_between_writers"] is not None:
+        print(f"queries from different writers for one prompt share {100 * spell['mean_word_overlap_between_writers']:.0f}% of their words")
+    print(json.dumps(info, indent=2))
+    return 0
+
+
+def _load_real(path):
+    ds = load_dataset(path)
+    owners_file = Path(path) / "owners.json"
+    if not owners_file.is_file():
+        raise ValueError(f"{owners_file} not found: build the collection with `hijje collect-build`")
+    return ds, json.loads(owners_file.read_text(encoding="utf-8"))
+
+
+def cmd_judge_sheet(args) -> int:
+    try:
+        ds, owners = _load_real(args.data)
+        specs = [s.strip() for s in args.retrievers.split(",") if s.strip()]
+        n = collect.judge_sheet(ds, owners, args.src, specs, args.out, args.depth)
+    except (FileNotFoundError, ValueError, ImportError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"{n} (prompt, passage) pairs written to {args.out}")
+    print("Fill the 'grade' column: 2 = gives the same information, 1 = partly, 0 = no. Then rebuild with --judgments.")
+    return 0
+
+
+def cmd_judge_export(args) -> int:
+    try:
+        n = collect.export_judgments(args.sheet, args.out)
+    except (FileNotFoundError, ValueError, KeyError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"{n} grades written to {args.out} (sentence numbers and grades only)")
+    return 0
+
+
+def cmd_real_eval(args) -> int:
+    try:
+        ds, owners = _load_real(args.data)
+        specs = [s.strip() for s in args.retrievers.split(",") if s.strip()]
+        result = collect.evaluate_real(ds, owners, specs, k=args.k, seed=args.seed, n_boot=args.n_boot)
+    except (FileNotFoundError, ValueError, ImportError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    rows = [{"prompt": o["prompt"], "writer": o["writer"], "query": ds.queries[q]} for q, o in owners.items() if q in ds.queries]
+    report = collect.to_markdown(result, collect.spelling_report(rows), collect.writers_per_prompt(rows))
+    if args.out:
+        out = Path(args.out)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "summary.md").write_text(report, encoding="utf-8")
+        (out / "results.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    print(report)
+    return 0
+
+
 def cmd_build_dakshina(args) -> int:
     try:
         info = build_collection(args.src, args.out, args.n_queries, args.query_len, args.seed)
@@ -327,6 +419,43 @@ def build_parser() -> argparse.ArgumentParser:
                    help="a set of words to report on; repeat for dev, test, ... Collisions are measured against all splits together")
     p.add_argument("--out")
     p.set_defaults(func=cmd_normcheck)
+
+    p = sub.add_parser("make-form", help="write the volunteer form (one HTML file)")
+    p.add_argument("--src", required=True, help="Dakshina Urdu folder or the rejoined .tsv file")
+    p.add_argument("--prompts", default="data/real_queries/prompt_ids.txt")
+    p.add_argument("--out", required=True)
+    p.add_argument("--contact", default="", help="shown to volunteers: where to send the file")
+    p.add_argument("--title", default="Roman Urdu search study")
+    p.set_defaults(func=cmd_make_form)
+
+    p = sub.add_parser("collect-build", help="build a test collection from volunteers' answer files")
+    p.add_argument("--responses", nargs="+", required=True, help="CSV files from volunteers (wildcards allowed)")
+    p.add_argument("--src", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--judgments", help="filled judge sheet from `hijje judge-sheet`")
+    p.set_defaults(func=cmd_collect_build)
+
+    p = sub.add_parser("judge-sheet", help="list pooled passages for a person to grade")
+    p.add_argument("--data", required=True)
+    p.add_argument("--src", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--retrievers", default="bm25,bm25-l4,char")
+    p.add_argument("--depth", type=int, default=3)
+    p.set_defaults(func=cmd_judge_sheet)
+
+    p = sub.add_parser("judge-export", help="keep only the grades of a filled judge sheet (safe to commit)")
+    p.add_argument("--sheet", required=True)
+    p.add_argument("--out", required=True)
+    p.set_defaults(func=cmd_judge_export)
+
+    p = sub.add_parser("real-eval", help="score retrievers on volunteers' real queries")
+    p.add_argument("--data", required=True)
+    p.add_argument("--out")
+    p.add_argument("--retrievers", default="bm25,bm25-l2,bm25-l3,bm25-l4,char,fusion")
+    p.add_argument("--k", type=int, default=10)
+    p.add_argument("--seed", type=int, default=13)
+    p.add_argument("--n-boot", type=int, default=2000)
+    p.set_defaults(func=cmd_real_eval)
 
     p = sub.add_parser("build-dakshina", help="build a test collection from the Dakshina Urdu sentences")
     p.add_argument("--src", required=True, help="Dakshina Urdu folder (contains 'romanized') or the rejoined .tsv file")

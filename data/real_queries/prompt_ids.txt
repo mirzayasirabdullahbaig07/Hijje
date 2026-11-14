@@ -1,0 +1,45 @@
+# Sentence numbers (s00001 = line 1 of ur.romanized.rejoined.tsv in the Dakshina Urdu data).
+# Only numbers are stored here: the sentences are CC BY-SA 4.0 and stay out of this repository.
+# Chosen from 130 random candidates, read for: self-contained, factual, safe to ask a stranger about.
+# Left out on purpose: politics of living people, violence, religious figures and practices, caste,
+# and vague sentences ("this", "they") that cannot be asked about without context.
+s03010
+s04414
+s05992
+s02635
+s02946
+s03395
+s03472
+s06775
+s03664
+s07598
+s04825
+s02142
+s00536
+s00833
+s08643
+s01892
+s08005
+s07107
+s06220
+s06236
+s06066
+s09350
+s04365
+s00007
+s06867
+s02704
+s00680
+s07726
+s00324
+s00344
+s01007
+s01480
+s08739
+s04114
+s08425
+s09581
+s02752
+s09041
+s03872
+s07251

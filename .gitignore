@@ -18,6 +18,9 @@ results/*
 
 # Built from CC BY-SA 4.0 text (Dakshina): build locally, never commit
 data/dakshina_ur/
+data/real_built/
+form.html
+judge*.csv
 
 # Model and embedding caches
 *.npy
