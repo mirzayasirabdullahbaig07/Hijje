@@ -54,6 +54,7 @@ FORM_HTML = r"""<!doctype html>
     </div>
     <h2 style="font-size:1.05rem">Before you start</h2>
     <p class="muted">This is anonymous. We do not ask for your name, e-mail or phone number. Your answers will be used for research on Roman Urdu search and may be published, without any personal details, as an open dataset. You can stop at any time by closing this page.</p>
+    <p class="muted hidden" id="sendnote">When you finish, your answers are sent automatically to the researcher. Nothing is sent before that.</p>
     <label style="font-weight:400"><input type="checkbox" id="consent"> I am 18 or older, and I agree that my answers may be used and published this way.</label>
     <label for="device">What are you typing on? (optional)</label>
     <select id="device"><option value="">–</option><option>phone</option><option>tablet</option><option>computer</option></select>
@@ -80,7 +81,10 @@ FORM_HTML = r"""<!doctype html>
 
   <section id="done" class="card hidden">
     <h2 style="margin-top:0">Thank you!</h2>
-    <p>You answered <b id="answered"></b> of <b id="total"></b> sentences. Please download your answers and send the file back.</p>
+    <p>You answered <b id="answered"></b> of <b id="total"></b> sentences.</p>
+    <p id="sendstatus" class="hidden"></p>
+    <div class="row hidden" id="retryrow"><button class="primary" id="retry">Send again</button></div>
+    <p id="downloadtext">Please download your answers and send the file back.</p>
     <div class="row"><button class="primary" id="download">Download my answers</button></div>
     <p class="muted" id="send"></p>
     <details><summary>The download does not work</summary>
@@ -157,6 +161,21 @@ FORM_HTML = r"""<!doctype html>
     });
     return lines.join("\r\n") + "\r\n";
   }
+  function rowsForSend() {
+    var rows = [];
+    PROMPTS.forEach(function (p) {
+      var a = state.answers[p.id]; if (!a) return;
+      rows.push({ writer: state.writer, prompt: p.id, status: a.status, query: a.query, device: state.meta.device, province: state.meta.province, frequency: state.meta.frequency });
+    });
+    return rows;
+  }
+  function sendAnswers() {
+    var st = $("sendstatus"); st.classList.remove("hidden"); $("retryrow").classList.add("hidden");
+    st.textContent = "Sending your answers...";
+    fetch(CONFIG.endpoint, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ rows: rowsForSend() }) })
+      .then(function () { state.sent = true; save(); st.textContent = "Your answers were sent. Thank you! Nothing more to do."; $("downloadtext").classList.add("hidden"); document.querySelector("#done details").classList.add("hidden"); $("download").parentNode.classList.add("hidden"); })
+      .catch(function () { st.textContent = "Sending did not work (no internet?). Press Send again, or download the file below and send it to us."; $("retryrow").classList.remove("hidden"); });
+  }
   function finish() {
     var answered = Object.keys(state.answers).filter(function (k) { return state.answers[k].status === "ok"; }).length;
     $("answered").textContent = answered; $("total").textContent = PROMPTS.length;
@@ -164,7 +183,10 @@ FORM_HTML = r"""<!doctype html>
     $("send").textContent = CONFIG.contact ? "Send the file to: " + CONFIG.contact : "Send the downloaded file to the person who gave you this page.";
     $("progress").style.width = "100%";
     save(); show("done");
+    if (CONFIG.endpoint && !state.sent) { sendAnswers(); }
+    else if (CONFIG.endpoint) { $("sendstatus").classList.remove("hidden"); $("sendstatus").textContent = "Your answers were already sent. Thank you!"; }
   }
+  if (CONFIG.endpoint) { $("sendnote").classList.remove("hidden"); $("retry").addEventListener("click", sendAnswers); }
 
   $("consent").addEventListener("change", function () { $("start").disabled = !$("consent").checked; });
   $("start").addEventListener("click", function () {

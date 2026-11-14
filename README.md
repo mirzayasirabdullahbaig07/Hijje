@@ -7,7 +7,7 @@ hijje, hijjay or hijay, which is the problem this project studies.
 
 > **Status: v0.5, a tested research instrument with a first real-text result and a kit for collecting real queries.**
 > New in 0.3: respelling that uses only spellings people wrote, and a test
-> collection of 9,759 human-written sentences. New in 0.5: a volunteer kit (form, loader, pooled judging, evaluation) for collecting real queries; no volunteer data is in the repository yet. New in 0.4: the normalisers are
+> collection of 9,759 human-written sentences. New in 0.6: 549 prompt sentences in 14 sets, with Excel and WhatsApp answer formats. New in 0.5: a volunteer kit (form, loader, pooled judging, evaluation) for collecting real queries; no volunteer data is in the repository yet. New in 0.4: the normalisers are
 > measured directly on 30,000 human-spelled words, a fifth normaliser (level 4: vowel classes)
 > and a test of how query length changes the picture. The results are a first
 > look, not a finished study. What is missing before a paper is listed under
@@ -325,7 +325,11 @@ the tools; no volunteer data has been collected yet.
 4. `hijje real-eval` scores the retrievers per prompt, including the *worst
    writer* (the unlucky spelling) and *agreement* between writers.
 
-With 8 writers this gives 320 real queries, with 5 or more writers for every
+v0.6 adds a pool of 549 prompt sentences in 14 sets and two more ways to answer:
+an Excel/CSV sheet and a numbered WhatsApp text (`hijje make-kit`,
+`hijje import-text`). Sets A to C are meant for 5+ writers each; the rest for 1 to 2.
+
+With 8 writers on one set this gives 320 real queries, with 5 or more writers for every
 prompt, which is what milestones M5 and M6 ask for. The full guide, including
 the message to send to volunteers and how to host the form for free, is
 [docs/VOLUNTEER_GUIDE.md](docs/VOLUNTEER_GUIDE.md).

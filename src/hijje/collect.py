@@ -82,10 +82,17 @@ def _index(sentence_id: str) -> int:
 
 # -- the form ------------------------------------------------------------------
 
-def make_form(src, prompt_ids: Sequence[str], out, contact: str = "", title: str = "Roman Urdu search study") -> dict:
-    """Write the volunteer form (one self-contained HTML file) to ``out``."""
+def make_form(src, prompt_ids: Sequence[str], out, contact: str = "", title: str = "Roman Urdu search study", endpoint: str = "") -> dict:
+    """Write the volunteer form (one self-contained HTML file) to ``out``.
+
+    With ``endpoint`` (an https address, e.g. a Google Apps Script web app, see
+    ``docs/VOLUNTEER_GUIDE.md``) the form also sends the answers there when the
+    volunteer finishes. The CSV download stays as a fallback.
+    """
     from .form_template import FORM_HTML
 
+    if endpoint and not endpoint.startswith("https://"):
+        raise ValueError("endpoint must be an https:// address")
     sentences = read_native_sentences(src)
     prompts = []
     for sid in prompt_ids:
@@ -93,12 +100,105 @@ def make_form(src, prompt_ids: Sequence[str], out, contact: str = "", title: str
         if not 0 <= i < len(sentences):
             raise ValueError(f"{sid} is outside the sentence file ({len(sentences)} sentences)")
         prompts.append({"id": sid, "text": sentences[i][0]})
-    payload = json.dumps({"prompts": prompts, "contact": contact, "title": title}, ensure_ascii=False)
+    payload = json.dumps({"prompts": prompts, "contact": contact, "title": title, "endpoint": endpoint}, ensure_ascii=False)
     # no "<" may reach the page: it could close the <script> element or open a comment
     payload = payload.replace("<", "\\u003c")
     html = FORM_HTML.replace("__PAYLOAD__", payload).replace("__TITLE__", title)
     Path(out).write_text(html, encoding="utf-8")
     return {"prompts": len(prompts), "out": str(out)}
+
+
+# -- other ways to answer ------------------------------------------------------
+
+SHEET_COLUMNS = ["writer", "prompt", "urdu", "query"]
+_NUMBERED = re.compile(r"^\s*(\d{1,3})\s*[\)\.\-:،]?\s*(.*)$")
+
+
+def _prompts_with_text(src, prompt_ids: Sequence[str]) -> list[tuple[str, str]]:
+    sentences = read_native_sentences(src)
+    out = []
+    for sid in prompt_ids:
+        i = _index(sid)
+        if not 0 <= i < len(sentences):
+            raise ValueError(f"{sid} is outside the sentence file ({len(sentences)} sentences)")
+        out.append((sid, sentences[i][0]))
+    return out
+
+
+def make_sheet(src, prompt_ids: Sequence[str], out, writer: str) -> int:
+    """A CSV a volunteer fills in with Excel or Google Sheets (one column to type in).
+
+    ``writer`` is pre-filled, so every row of the sheet belongs to one person
+    and nobody has to type a code.
+    """
+    if not re.match(r"^[A-Za-z0-9_-]{1,40}$", writer):
+        raise ValueError("writer code: letters, digits, - and _ only")
+    rows = _prompts_with_text(src, prompt_ids)
+    with Path(out).open("w", encoding="utf-8-sig", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(SHEET_COLUMNS)
+        for sid, text in rows:
+            w.writerow([writer, sid, text, ""])
+    return len(rows)
+
+
+def make_text(src, prompt_ids: Sequence[str], out, intro: str = "") -> int:
+    """The prompts as a numbered text, to paste into WhatsApp or e-mail."""
+    rows = _prompts_with_text(src, prompt_ids)
+    lines = [intro.strip(), ""] if intro.strip() else []
+    lines += [f"{n}) {text}" for n, (_, text) in enumerate(rows, 1)]
+    Path(out).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return len(rows)
+
+
+def parse_reply(text: str, prompt_ids: Sequence[str], writer: str) -> tuple[list[dict], dict]:
+    """Read a reply typed as ``3) kitni der lagegi`` lines (WhatsApp, e-mail, Notes).
+
+    A line must start with the number of the prompt it answers. ``1)``, ``1.``,
+    ``1-``, ``1:`` and a bare ``1`` all work, as do Urdu digits. Lines without a
+    number, numbers outside the list and repeated numbers (the last one wins) are
+    counted, never guessed at.
+    """
+    stats: dict = defaultdict(int)
+    found: dict = {}
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        m = _NUMBERED.match(line)
+        if not m:
+            stats["lines without a number"] += 1
+            continue
+        n, query = int(m.group(1)), " ".join(m.group(2).split())
+        if not 1 <= n <= len(prompt_ids):
+            stats["number outside the list"] += 1
+            continue
+        if n in found:
+            stats["number repeated (last kept)"] += 1
+        found[n] = query
+    rows = [
+        {"writer": writer, "prompt": prompt_ids[n - 1], "status": "ok", "query": q,
+         "device": "", "province": "", "frequency": ""}
+        for n, q in sorted(found.items())
+    ]
+    stats["answers found"] = len(rows)
+    return rows, dict(stats)
+
+
+def write_responses(rows: Sequence[dict], out) -> None:
+    with Path(out).open("w", encoding="utf-8-sig", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=RESPONSE_COLUMNS)
+        w.writeheader()
+        w.writerows(rows)
+
+
+def all_batches(folder) -> dict:
+    """``{"a": [ids], "b": [ids], ...}`` from ``prompt_ids.txt`` (batch a) and ``prompt_ids_<x>.txt``."""
+    out = {}
+    for path in sorted(Path(folder).glob("prompt_ids*.txt")):
+        stem = path.stem
+        key = "a" if stem == "prompt_ids" else stem.rsplit("_", 1)[1]
+        out[key] = read_prompt_ids(path)
+    return dict(sorted(out.items()))
 
 
 # -- responses -----------------------------------------------------------------
@@ -228,7 +328,8 @@ def build_real(rows: Sequence[dict], src, out, judgments: Optional[dict] = None)
 JUDGE_COLUMNS = ["prompt", "prompt_text", "candidate", "candidate_text", "grade"]
 
 
-def judge_sheet(ds: Dataset, owners: dict, src, retrievers: Sequence[str], out, depth: int = 5) -> int:
+def judge_sheet(ds: Dataset, owners: dict, src, retrievers: Sequence[str], out, depth: int = 3,
+                max_per_prompt: Optional[int] = 10) -> int:
     """List every passage that any retriever ranks in its top ``depth`` for any query.
 
     Each row is one (prompt, passage) pair to grade, shared by all writers of the
@@ -239,20 +340,26 @@ def judge_sheet(ds: Dataset, owners: dict, src, retrievers: Sequence[str], out, 
     doc_ids = sorted(ds.corpus)
     texts = [ds.corpus[d] for d in doc_ids]
     qids = sorted(ds.queries)
-    pooled: dict = defaultdict(set)
+    pooled: dict = defaultdict(lambda: defaultdict(int))
     for spec in retrievers:
         retriever = build_retriever(spec)
         retriever.index(doc_ids, texts)
         runs = retriever.search_batch([ds.queries[q] for q in qids], depth)
         for qid, run in zip(qids, runs):
             prompt = owners[qid]["prompt"]
-            pooled[prompt].update(d for d, _ in run if d != prompt)
+            for d, _ in run:
+                if d != prompt:
+                    pooled[prompt][d] += 1
     n = 0
     with Path(out).open("w", encoding="utf-8-sig", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=JUDGE_COLUMNS)
         writer.writeheader()
         for prompt in sorted(pooled):
-            for cand in sorted(pooled[prompt]):
+            counts = pooled[prompt]
+            keep = sorted(counts, key=lambda d: (-counts[d], d))
+            if max_per_prompt is not None:
+                keep = keep[:max_per_prompt]
+            for cand in sorted(keep):
                 writer.writerow({
                     "prompt": prompt, "prompt_text": sentences[_index(prompt)][0],
                     "candidate": cand, "candidate_text": sentences[_index(cand)][0], "grade": "",

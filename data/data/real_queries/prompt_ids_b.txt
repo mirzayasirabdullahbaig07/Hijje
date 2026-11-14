@@ -1,0 +1,44 @@
+# Batch B of three. Sentence numbers only (s00001 = line 1 of ur.romanized.rejoined.tsv in the Dakshina Urdu data);
+# the sentences are CC BY-SA 4.0 and stay out of this repository.
+# Same screening as batch A: self-contained, factual, safe to ask a stranger about. Left out: politics of living
+# people, violence, religious figures and practices, caste, and vague sentences that cannot be asked about without context.
+s07567
+s08095
+s05256
+s02341
+s00701
+s02581
+s01929
+s03720
+s06538
+s04970
+s05684
+s06571
+s04777
+s03675
+s05163
+s02488
+s02810
+s08339
+s00785
+s09522
+s04524
+s02741
+s06463
+s09050
+s05806
+s03435
+s06565
+s06413
+s00844
+s08863
+s02061
+s09628
+s04192
+s05545
+s09439
+s08823
+s07927
+s07795
+s02224
+s09708

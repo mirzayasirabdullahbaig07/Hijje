@@ -28,3 +28,5 @@ judge*.csv
 .cache/
 
 results/dakshina_*/variants.jsonl
+
+kit/

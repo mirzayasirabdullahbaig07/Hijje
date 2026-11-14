@@ -1,0 +1,43 @@
+# Batch E. Sentence numbers only (s00001 = line 1 of ur.romanized.rejoined.tsv in the Dakshina Urdu data);
+# the sentences are CC BY-SA 4.0 and stay out of this repository.
+# Same screening as batches A-C: self-contained, factual, safe to ask a stranger about (no religion, politics, violence, health, caste).
+s02552
+s02054
+s08518
+s07898
+s05607
+s02239
+s06947
+s06515
+s07277
+s04666
+s08674
+s04534
+s02350
+s06435
+s08062
+s08136
+s03804
+s04371
+s01982
+s09590
+s03983
+s08785
+s01661
+s08873
+s06332
+s03816
+s05352
+s05520
+s06607
+s00173
+s09726
+s02945
+s06336
+s03273
+s07553
+s09110
+s02670
+s08577
+s07601
+s09330

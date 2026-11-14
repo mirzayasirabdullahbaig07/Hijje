@@ -35,11 +35,68 @@ def test_prompt_ids_are_read_and_checked(tmp_path):
         collect.read_prompt_ids(f)
 
 
-def test_the_committed_prompt_list_is_valid_and_has_no_sentence_text():
-    path = FIX.parent.parent / "data" / "real_queries" / "prompt_ids.txt"
-    ids = collect.read_prompt_ids(path)
-    assert len(ids) == 40
-    assert not any(ord(ch) > 127 for ch in path.read_text(encoding="utf-8")), "CC BY-SA text must not be committed"
+def test_all_committed_prompt_batches_are_valid_distinct_and_have_no_sentence_text():
+    folder = FIX.parent.parent / "data" / "real_queries"
+    batches = collect.all_batches(folder)
+    assert list(batches)[:3] == ["a", "b", "c"] and len(batches) >= 14
+    all_ids = []
+    for key, ids in batches.items():
+        assert 25 <= len(ids) <= 40, key
+        all_ids += ids
+    for path in folder.glob("prompt_ids*.txt"):
+        assert not any(ord(ch) > 127 for ch in path.read_text(encoding="utf-8")), "CC BY-SA text must not be committed"
+    assert len(set(all_ids)) == len(all_ids), "a sentence appears in two batches"
+    assert 500 <= len(all_ids) <= 600
+
+
+def test_sheet_has_prefilled_writer_and_loads_back_as_answers(tmp_path):
+    sheet = tmp_path / "s.csv"
+    assert collect.make_sheet(SENTENCES, ["s00001", "s00002"], sheet, writer="P01") == 2
+    rows = list(csv.DictReader(sheet.open(encoding="utf-8-sig")))
+    assert [r["writer"] for r in rows] == ["P01", "P01"] and rows[0]["urdu"] == "پانی بہت ٹھنڈا ہے"
+    rows[0]["query"] = "pani bohat thanda"
+    with sheet.open("w", encoding="utf-8-sig", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    got, stats = collect.load_responses([str(sheet)])
+    assert [(r["writer"], r["prompt"], r["query"]) for r in got] == [("P01", "s00001", "pani bohat thanda")]
+    assert stats["dropped: skipped or empty"] == 1
+    with pytest.raises(ValueError):
+        collect.make_sheet(SENTENCES, ["s00001"], sheet, writer="bad code,")
+
+
+def test_parse_reply_accepts_common_numbering_and_counts_the_rest():
+    ids = ["s00001", "s00002", "s00003", "s00004"]
+    text = "1) pani thanda\n2. kitab mez\n۳- teesri baat\n4 chauthi\nsirf aik line\n9) bahar\n2) kitab mez par\n"
+    rows, stats = collect.parse_reply(text, ids, "P7")
+    assert {r["prompt"]: r["query"] for r in rows} == {
+        "s00001": "pani thanda", "s00002": "kitab mez par", "s00003": "teesri baat", "s00004": "chauthi"}
+    assert stats["lines without a number"] == 1 and stats["number outside the list"] == 1
+    assert stats["number repeated (last kept)"] == 1 and stats["answers found"] == 4
+
+
+def test_reply_to_csv_to_collection_end_to_end(tmp_path):
+    ids_file = tmp_path / "ids.txt"
+    ids_file.write_text("s00001\ns00002\n")
+    reply = tmp_path / "reply.txt"
+    reply.write_text("1) pani bohat thanda\n2) kitab mez par\n", encoding="utf-8")
+    out = tmp_path / "ans.csv"
+    assert main(["import-text", "--reply", str(reply), "--prompts", str(ids_file), "--writer", "P1", "--out", str(out)]) == 0
+    rows, _ = collect.load_responses([str(out)])
+    assert len(rows) == 2 and rows[0]["writer"] == "P1"
+
+
+def test_make_kit_writes_every_format_for_every_set(tmp_path):
+    prompts = tmp_path / "p"
+    prompts.mkdir()
+    (prompts / "prompt_ids.txt").write_text("s00001\ns00002\n")
+    (prompts / "prompt_ids_b.txt").write_text("s00003\n")
+    out = tmp_path / "kit"
+    assert main(["make-kit", "--src", SENTENCES, "--out", str(out), "--prompts-dir", str(prompts), "--intro", "hello"]) == 0
+    for sub, ext in (("forms", "html"), ("sheets", "csv"), ("whatsapp", "txt")):
+        assert sorted(p.name for p in (out / sub).iterdir()) == [f"a.{ext}", f"b.{ext}"]
+    assert (out / "whatsapp" / "a.txt").read_text(encoding="utf-8").splitlines()[:3] == ["hello", "", "1) پانی بہت ٹھنڈا ہے"]
 
 
 def test_the_form_carries_every_prompt_and_the_contact(tmp_path):
@@ -166,6 +223,21 @@ def test_judge_sheet_pools_results_and_skips_the_source(tmp_path):
     assert all(r["grade"] == "" for r in rows)
     pairs = {(r["prompt"], r["candidate"]) for r in rows}
     assert ("s00003", "s00004") in pairs          # shares "mushkil" with the prompt's sentence
+
+
+def test_judge_sheet_keeps_the_most_often_returned_passages_first(tmp_path):
+    rows = [{"writer": f"w{i}", "prompt": "s00003", "query": q, "device": "", "province": "", "frequency": ""}
+            for i, q in enumerate(["bohat mushkil", "bohat", "mushkil sawal", "mushkil"])]
+    collect.build_real(rows, SENTENCES, tmp_path / "d")
+    ds = load_dataset(tmp_path / "d")
+    owners = json.loads((tmp_path / "d" / "owners.json").read_text())
+    full, capped = tmp_path / "full.csv", tmp_path / "capped.csv"
+    n_full = collect.judge_sheet(ds, owners, SENTENCES, ["bm25"], full, depth=4, max_per_prompt=None)
+    n_cap = collect.judge_sheet(ds, owners, SENTENCES, ["bm25"], capped, depth=4, max_per_prompt=1)
+    assert n_full == 2 and n_cap == 1
+    kept = {r["candidate"] for r in csv.DictReader(capped.open(encoding="utf-8-sig"))}
+    # s00004 ("mushkil") is returned for 3 of the 4 queries, s00001 ("bohat") for 2: the cap must keep s00004
+    assert kept == {"s00004"}
 
 
 def test_filled_judge_sheet_is_read_and_a_bad_grade_is_refused(tmp_path):

@@ -257,12 +257,49 @@ def cmd_normcheck(args) -> int:
 def cmd_make_form(args) -> int:
     try:
         ids = collect.read_prompt_ids(args.prompts)
-        info = collect.make_form(args.src, ids, args.out, contact=args.contact, title=args.title)
+        info = collect.make_form(args.src, ids, args.out, contact=args.contact, title=args.title, endpoint=args.endpoint)
     except (FileNotFoundError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     print(f"form with {info['prompts']} prompts written to {info['out']}")
     print("It contains CC BY-SA 4.0 sentences (Dakshina). Share it with volunteers, but do not commit it to the MIT repository.")
+    return 0
+
+
+def cmd_make_kit(args) -> int:
+    try:
+        batches = collect.all_batches(args.prompts_dir)
+        out = Path(args.out)
+        for sub_dir in ("forms", "sheets", "whatsapp"):
+            (out / sub_dir).mkdir(parents=True, exist_ok=True)
+        total = 0
+        for key, ids in batches.items():
+            collect.make_form(args.src, ids, out / "forms" / f"{key}.html", contact=args.contact,
+                              title=f"{args.title} - set {key.upper()}", endpoint=args.endpoint)
+            collect.make_sheet(args.src, ids, out / "sheets" / f"{key}.csv", writer=f"{args.writer_prefix}{key.upper()}")
+            collect.make_text(args.src, ids, out / "whatsapp" / f"{key}.txt", intro=args.intro)
+            total += len(ids)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"{len(batches)} sets, {total} prompts: forms/, sheets/ and whatsapp/ written to {out}")
+    print("They contain CC BY-SA 4.0 sentences (Dakshina). Hand them to volunteers; do not commit them.")
+    print("In sheets/, change the writer code (column A) to a different one for every person.")
+    return 0
+
+
+def cmd_import_text(args) -> int:
+    try:
+        ids = collect.read_prompt_ids(args.prompts)
+        text = Path(args.reply).read_text(encoding="utf-8-sig")
+        rows, stats = collect.parse_reply(text, ids, args.writer)
+        collect.write_responses(rows, args.out)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for reason, n in sorted(stats.items()):
+        print(f"  {reason}: {n}")
+    print(f"written to {args.out}")
     return 0
 
 
@@ -302,7 +339,7 @@ def cmd_judge_sheet(args) -> int:
     try:
         ds, owners = _load_real(args.data)
         specs = [s.strip() for s in args.retrievers.split(",") if s.strip()]
-        n = collect.judge_sheet(ds, owners, args.src, specs, args.out, args.depth)
+        n = collect.judge_sheet(ds, owners, args.src, specs, args.out, args.depth, args.max_per_prompt or None)
     except (FileNotFoundError, ValueError, ImportError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -426,7 +463,26 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", required=True)
     p.add_argument("--contact", default="", help="shown to volunteers: where to send the file")
     p.add_argument("--title", default="Roman Urdu search study")
+    p.add_argument("--endpoint", default="", help="https address that receives the answers (see the volunteer guide)")
     p.set_defaults(func=cmd_make_form)
+
+    p = sub.add_parser("make-kit", help="write forms, Excel/CSV sheets and WhatsApp texts for every prompt set")
+    p.add_argument("--src", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--prompts-dir", default="data/real_queries")
+    p.add_argument("--contact", default="")
+    p.add_argument("--title", default="Roman Urdu search study")
+    p.add_argument("--endpoint", default="", help="https address that receives form answers")
+    p.add_argument("--writer-prefix", default="W", help="sheets get the writer code <prefix><SET>; change it per person")
+    p.add_argument("--intro", default="", help="text placed above the numbered sentences in the WhatsApp files")
+    p.set_defaults(func=cmd_make_kit)
+
+    p = sub.add_parser("import-text", help="turn a typed reply (1) query / 2) query ...) into an answer CSV")
+    p.add_argument("--reply", required=True, help="text file with the person's reply")
+    p.add_argument("--prompts", required=True, help="the prompt-id file of the set that person got")
+    p.add_argument("--writer", required=True, help="a code for this person, e.g. P017")
+    p.add_argument("--out", required=True)
+    p.set_defaults(func=cmd_import_text)
 
     p = sub.add_parser("collect-build", help="build a test collection from volunteers' answer files")
     p.add_argument("--responses", nargs="+", required=True, help="CSV files from volunteers (wildcards allowed)")
@@ -441,6 +497,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", required=True)
     p.add_argument("--retrievers", default="bm25,bm25-l4,char")
     p.add_argument("--depth", type=int, default=3)
+    p.add_argument("--max-per-prompt", type=int, default=10, help="grade at most this many passages per prompt, the most often returned first (0 = all)")
     p.set_defaults(func=cmd_judge_sheet)
 
     p = sub.add_parser("judge-export", help="keep only the grades of a filled judge sheet (safe to commit)")
