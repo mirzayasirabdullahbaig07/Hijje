@@ -113,6 +113,7 @@ def evaluate(
     config: EvalConfig = EvalConfig(),
     model: Optional[VariationModel] = None,
     with_rule_impact: bool = True,
+    variation: str = "rules",
 ) -> dict:
     """Run the full experiment and return a JSON-serialisable result."""
     model = model or VariationModel(protect=ds.protected)
@@ -205,6 +206,7 @@ def evaluate(
             "config": {**asdict(config), "rates": list(config.rates)},
             "retrievers": names,
             "baseline": baseline,
+            "variation": variation,
             "conditions": conditions,
         },
         "summary": summary,

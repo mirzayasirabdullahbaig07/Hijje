@@ -33,6 +33,13 @@ def to_markdown(result: dict) -> str:
         f"{cfg['n_variants']} respelled variants per query per rate, seed {cfg['seed']}, "
         f"hijje {meta['hijje_version']}."
     )
+    variation = meta.get("variation", "rules")
+    if variation != "rules":
+        how = {
+            "attested": "Queries were respelled only with spellings that people wrote for the same word.",
+            "attested+rules": "Queries were respelled with spellings that people wrote; the hand-written rules were used for words the data lacks.",
+        }.get(variation, f"Respelling model: {variation}.")
+        out += ["", how]
     out += ["", f"## Robustness (nDCG@{k})", ""]
     header = ["Retriever", "Clean", "95% CI"]
     for cond in noisy:

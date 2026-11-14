@@ -12,6 +12,11 @@ venv/
 # The seed run is kept as the reference output that tests of reproducibility compare against.
 results/*
 !results/seed/
+!results/seed_dense/
+!results/dakshina_*/
+
+# Built from CC BY-SA 4.0 text (Dakshina): build locally, never commit
+data/dakshina_ur/
 
 # Model and embedding caches
 *.npy

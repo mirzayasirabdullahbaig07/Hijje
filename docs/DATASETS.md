@@ -96,6 +96,30 @@ How it is used here:
   CC BY-SA 4.0, which would carry over to a translation.
 - Possible use: paragraphs as passages and questions as queries.
 
+## How Hijje uses Dakshina (v0.3.0)
+
+- `hijje attested` compares the rules with its spellings (lexicon and
+  sentences). The summaries are in `results/dakshina_lexicon` and
+  `results/dakshina_sentences`. The full tables are not committed.
+- `hijje build-dakshina` turns `ur.romanized.rejoined.tsv` (9,759 sentences)
+  into a BEIR-format collection: every sentence is a passage; for 1,000
+  sentences the four most distinctive words (document frequency between 2 and
+  2% of sentences, at least 3 letters, ASCII letters only) are the query.
+- `--variation attested:<lexicon file>` respells query words with other
+  spellings people wrote for the same word, weighted by count. The lexicon
+  *train* file is used, not the sentences, so a query is never respelled with
+  its own passage's spelling.
+- Counts in the lexicon are how many annotators gave a spelling. They are not
+  usage frequencies. Counts in the sentences are real usage.
+- Not committed: the built collection (`data/dakshina_ur/` is in
+  `.gitignore`) and the full tables. Committed: aggregate results with a few
+  example words, under the same CC BY-SA 4.0 terms.
+
+Known doubts: the lexicon contains English words and names written in Roman
+letters (einstein, idea), which are not Urdu spelling variation in the
+usual sense; the annotators' country is not stated; the sentences are
+Wikipedia-style writing, not chat.
+
 ## Licences, in plain words
 
 - A benchmark that mixes these sources can only be shared under terms that

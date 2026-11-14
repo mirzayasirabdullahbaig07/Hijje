@@ -1,13 +1,14 @@
 # Hijje
 
-**Measuring, and fixing, what happens to search when Roman Urdu is spelled differently.**
+**Measuring, and fixing, what happens to search when Roman Urdu is spelled differently**
 
 *Hijje* (ہجے) is the Urdu word for "spelling". The name itself can be written
 hijje, hijjay or hijay, which is the problem this project studies.
 
-> **Status: v0.2, a tested research instrument with a small seed dataset.**
-> It makes no research claims yet. The numbers below are a check that the
-> pipeline works. What is missing before a paper is listed under
+> **Status: v0.3, a tested research instrument with a first real-text result.**
+> New in 0.3: respelling that uses only spellings people wrote, and a test
+> collection of 9,759 human-written sentences. The result is a first look, not
+> a finished study. What is missing before a paper is listed under
 > [Limitations](#limitations) and in [docs/RESEARCH_PLAN.md](docs/RESEARCH_PLAN.md).
 
 ---
@@ -119,15 +120,125 @@ hijje validate --data path/to/dataset         # check your own dataset
 hijje review-sheet --variants results/seed/variants.jsonl --out review/seed.csv
 hijje review-stats --sheet review/seed.csv
 hijje attested --pairs lexicon.tsv --show pani  # compare the rules with spellings people wrote
+hijje build-dakshina --src <ur folder> --out data/dakshina_ur   # real-text test collection
+hijje eval --data data/seed --variation "attested:<lexicon.tsv>" --out results/x   # respell with people's spellings
 ```
 
 Any dataset in BEIR layout (`corpus.jsonl`, `queries.jsonl`, `qrels.tsv`)
 works with `--data`.
 
+## Results on human-written Roman Urdu (Dakshina)
+
+The seed set below is small and its respellings are invented by rules. So the
+next step was to test with spellings that people really wrote. The
+[Dakshina dataset](https://github.com/google-research-datasets/dakshina)
+(Roark et al., 2020, CC BY-SA 4.0) has two things that make this possible:
+Roman spellings of 30,000 Urdu words, written by native speakers (about 4.2
+spellings per word), and 9,759 Urdu sentences that people wrote out in Roman
+letters.
+
+**What was built.**
+
+- *Passages:* the 9,759 Roman sentences, exactly as people wrote them.
+- *Queries:* for 1,000 of those sentences, its four most distinctive words, in
+  the writer's own spelling. Another sentence that has all four words also
+  counts as relevant (226 such extra judgements).
+- *Respelling:* each query word is replaced by a different spelling that
+  *other* people wrote for the same word, picked in proportion to how many
+  people wrote it. These come from the word lexicon, not from the sentences,
+  so a query is never respelled with the very spelling its passage uses.
+  Words the lexicon does not know are left alone: on average 70% of a query's
+  words can be changed, and 15 of the 1,000 queries have no changeable word.
+  "100% respelled" below therefore means *every changeable word*, not every word.
+
+| Retriever | Clean | 50% respelled | Drop | 100% respelled | Drop |
+|---|---|---|---|---|---|
+| bm25 | 0.993 | 0.900 | 9.4% | 0.533 | 46.3% |
+| bm25-l2 | 0.988 | 0.953 | 3.5% | 0.836 | 15.4% |
+| bm25-l3 | 0.977 | 0.959 | 1.8% | 0.938 | 3.9% |
+| char | 0.976 | 0.922 | 5.6% | 0.791 | 19.0% |
+| fusion | 0.993 | 0.949 | 4.4% | 0.748 | 24.6% |
+
+nDCG@10, 1,000 queries, 5 respelled versions per query per rate, seed 13.
+Full output with confidence intervals: [results/dakshina_ur_human/summary.md](results/dakshina_ur_human/summary.md).
+
+**What this shows.**
+
+1. **The problem is real on real text.** Exact-match search loses 9% of its
+   score when half the changeable words are spelled another way, and 46% when
+   all of them are.
+2. **Phonetic normalisation helps a lot, and costs something.** Level 3 keeps
+   all but 3.9%, against 46% for plain BM25. The price is on clean queries
+   (0.993 to 0.977), because it merges some different words. Level 2 is
+   cheaper and recovers less. Character n-grams and fusion sit in between.
+3. **The invented rules were too kind to the normaliser.** Run on the same
+   collection, the rule-based generator makes level 3 look almost immune (0.5%
+   drop) and level 2 nearly so (2.2%). With spellings people really wrote the
+   figures are 3.9% and 15.4%. (The two generators can change a similar share
+   of the query words, 76% for the rules and 70% for the lexicon, so the
+   comparison is fair on that point.) This is the doubt that was listed as limitation 3,
+   now measured. The rules also overstate the harm to plain BM25 (57.7% instead
+   of 46.3%).
+
+| Drop at 100% respelled | bm25 | bm25-l2 | bm25-l3 | char | fusion |
+|---|---|---|---|---|---|
+| Hand-written rules ([results](results/dakshina_ur_rules/summary.md)) | 57.7% | 2.2% | 0.5% | 11.5% | 24.9% |
+| Spellings people wrote ([results](results/dakshina_ur_human/summary.md)) | 46.3% | 15.4% | 3.9% | 19.0% | 24.6% |
+| Both: people's spellings, rules for the rest ([results](results/dakshina_ur_human_plus_rules/summary.md)) | 84.7% | 17.8% | 4.0% | 26.8% | 46.2% |
+
+**What the people's spellings say about the rules.** The rules were also
+compared word by word with the Dakshina spellings
+([lexicon](results/dakshina_lexicon/attested.md),
+[sentences](results/dakshina_sentences/attested.md)):
+
+- Where the rules and the data overlap, the long-vowel rules do best. In the
+  word lexicon, `long_a` (`baat` / `bat`) is matched by a real spelling 59% of
+  the time, `long_u` 51%, `long_i` 44%. In the sentences, `long_a` is 58%.
+- Only 14.5% of the lexicon's spelling differences, and 26.7% of the
+  sentences', are exactly one rule edit. Most real differences involve short
+  vowels (`mujhe` / `majhe`, `kitni` / `katni`, `nahi` / `nehi`), which no rule
+  models yet.
+- `hy` for `hai` never occurs in the sentences (`hai` 2,986 times, `he` 985).
+  The rule `final_e_y` (`mujhe` / `mujhy`) is matched 14% of the time in the
+  lexicon and 7% in the sentences, and the vowel-dropping rule `vowel_drop`
+  (`karna` / `krna`) 4% and 3%.
+- Chat-style forms cannot be judged from this data. It is careful written text
+  and says nothing about how people type quickly.
+
+**Limits of this result.** Read these before quoting a number.
+
+- The queries are *constructed* from the passages (four distinctive words), not
+  written by people with a question. Word matching has a large advantage on
+  clean queries, which is why clean scores are near 1.
+- The lexicon spellings were given by annotators asked to transliterate single
+  words. People typing a whole sentence may spell differently. The counts are
+  how many annotators gave a spelling, not how often it is used in text.
+- Level 3 was designed by the same author who wrote the rules. It has no word
+  list, but its design is not independent of how the rules were imagined.
+- The annotators' country is not stated.
+- One collection, one seed, one language variety: a first look, not a
+  benchmark.
+
+**Reproduce it.** The Dakshina files are CC BY-SA 4.0, and the repository is
+MIT, so the data is not included; the built collection is listed in
+`.gitignore` so it cannot be committed by accident. Download the dataset
+(about 1.9 GB; only the Urdu folder is needed, about 5 MB), then:
+
+```bash
+hijje build-dakshina --src <path to dakshina_dataset_v1.0/ur> --out data/dakshina_ur
+hijje eval --data data/dakshina_ur --out results/dakshina_ur_human \
+  --variation "attested:<path to ur>/lexicons/ur.translit.sampled.train.tsv" \
+  --retrievers bm25,bm25-l2,bm25-l3,char,fusion
+```
+
+`notebooks/dakshina_check.ipynb` downloads and unpacks the Urdu files for
+you on Kaggle. To run the tests that compare the saved results with a fresh
+run, set `HIJJE_DAKSHINA_DIR` to the same Urdu folder and run `pytest`.
+
 ## Results on the seed set
 
 48 passages, 48 queries, 5 respelled versions of each query at each rate,
-seed 13, hijje 0.2.1 (rules last changed in 0.2.0, after the first native review). Full output: [results/seed/summary.md](results/seed/summary.md).
+seed 13, hijje 0.2.1, the version that produced the committed run (rules last changed in 0.2.0, after the first native review). Full output: [results/seed/summary.md](results/seed/summary.md).
 A test fails if this table and the saved run disagree.
 
 nDCG@10, where 1.0 is perfect:
@@ -266,6 +377,8 @@ specific doubt a reviewer would raise.
 | **Per-rule impact table** | Shows which kind of respelling hurts which retriever, which is what tells you what to fix. | Only the overall drop. |
 | **BEIR file layout** | Any BEIR-format dataset plugs in unchanged, and other people's tools can read this project's data. | A custom format. |
 | **Native-speaker review sheet** | Turns "these rules look plausible" into a measured precision per rule, with agreement between reviewers. | Trusting the rule author. |
+| **Respelling from people's spellings, weighted by how many wrote each** | Invented rules reproduce only part of real variation, and a normaliser tested on them looks better than it is (measured above). Sampling only spellings that a person wrote for the same word removes the author's guesses from the test. | Keeping the rules as the main generator. They stay as an option for chat-style forms that the data lacks. |
+| **A test collection built from human-written sentences** | Real text, a clear licence, and a spelling dataset to respell queries with, all from one source and free. | Waiting for a collection with real user queries. None with a clear licence was found; the limits are stated instead. |
 | **Check against human-written spellings** (`hijje attested`) | A public dataset holds Roman spellings of 30,000 Urdu words written by native speakers. Comparing the rules with it shows, for every rule, what share of its respellings a person also wrote, on far more words than two reviewers can read. | Review sheets only. They are slower and cover a few hundred respellings. |
 
 ## Project layout
@@ -282,9 +395,13 @@ src/hijje/
   report.py       Markdown report
   review.py       native-speaker review sheet and its statistics
   attested.py     compares the rules with spellings written by people
+  attested_model.py  respells queries using only spellings people wrote
+  dakshina.py     builds a test collection from the Dakshina Urdu sentences
   cli.py          the `hijje` command
 data/seed/        48 passages, 48 queries, labels, protected loanwords
 results/seed/     reference output of the seed run
+results/dakshina_ur_*/   real-text runs: people's spellings, rules, and both
+results/dakshina_lexicon, dakshina_sentences/   rules checked against people's spellings
 review/seed.csv   review sheet for the current rules, waiting to be filled
 review/round1_native.csv       round 1: a native speaker's answers on the 0.1.0 respellings
 review/seed_ai_firstpass.csv   round 1: an AI assistant's guesses on the same sheet; not a review
@@ -296,7 +413,7 @@ docs/
   DATASETS.md          candidate datasets, their licences and doubts
 notebooks/
   dense_baselines.ipynb  runs neural retrievers on a free GPU
-  dakshina_check.ipynb   checks the rules against the Dakshina spellings (not run yet)
+  dakshina_check.ipynb   downloads the Dakshina Urdu files and checks the rules against them
 ```
 
 ## Dense models on Kaggle or Colab
@@ -324,9 +441,14 @@ their required `query:` / `passage:` prefixes automatically.
    any conclusion. See [data/seed/README.md](data/seed/README.md).
 2. **The respellings are synthetic.** One native speaker has reviewed 28 of
    them; a full review by two people is still needed.
-3. **Normalisation is favoured by construction** on synthetic variants. Only
-   human-written variants can test it fairly.
-4. **Documents are never respelled.** Real corpora are inconsistent too.
+3. **Normalisation is favoured by construction** on synthetic variants. The
+   Dakshina run above tests it with spellings people wrote, and the effect is
+   large (level 2: 2.2% drop with rules, 15.4% with people's spellings). Those
+   spellings are still annotators' single-word transliterations, not free
+   writing, and the author designed both the rules and the normaliser.
+4. **Documents are never respelled.** Real corpora are inconsistent too. The
+   Dakshina passages are real, each in its writer's own spelling, but the
+   queries are constructed from them rather than written by users.
 5. **English loanwords are protected by a hand-made list** per dataset.
 6. **The neural results are one run on 48 passages.** The confidence intervals
    are wide, and only four models were tried.
@@ -341,9 +463,9 @@ their required `query:` / `passage:` prefixes automatically.
 | M1 | Rules reviewed by two native speakers | round 1 done by one reviewer |
 | M2 | Dense baselines on the seed set | done |
 | M3 | Literature review of 20–30 papers | |
-| M4 | Real corpus with a clear licence | candidates listed in [docs/DATASETS.md](docs/DATASETS.md); none downloaded yet |
+| M4 | Real corpus with a clear licence | first one in use: Dakshina Urdu sentences (CC BY-SA 4.0), constructed queries; a corpus with real user queries is still needed |
 | M5 | 300+ queries with relevance labels | |
-| M6 | Human-written spelling variants, 5+ writers per query | |
+| M6 | Human-written spelling variants, 5+ writers per query | partly: the Dakshina word lexicon gives about 4 spellings per word; whole queries written by several people are still needed |
 | M7 | Full experiments | |
 | M8 | Paper draft | |
 
@@ -352,6 +474,12 @@ Details and exit criteria: [docs/RESEARCH_PLAN.md](docs/RESEARCH_PLAN.md).
 ## Licence and disclosure
 
 Code and seed data: MIT, see [LICENSE](LICENSE).
+
+The Dakshina data is not part of this repository. It is CC BY-SA 4.0
+(Roark et al., 2020: "Processing South Asian Languages Written in the Latin
+Script: the Dakshina Dataset"). The summary files in `results/dakshina_*`
+quote short example words from it and are shared under the same terms; any
+collection built from it must also be shared under CC BY-SA 4.0.
 
 The first version of the code, rules, seed passages and documentation was
 drafted with an AI assistant and has not yet been reviewed line by line by the

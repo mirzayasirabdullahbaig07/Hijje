@@ -9,6 +9,8 @@
     hijje review-sheet --variants results/seed/variants.jsonl --out review/seed.csv
     hijje review-stats --sheet review/seed.csv
     hijje attested --pairs lexicon.tsv --out results/attested --show pani theek
+    hijje build-dakshina --src <dakshina ur folder> --out data/dakshina_ur
+    hijje eval --data data/dakshina_ur --variation "attested:<lexicon files>" --out results/dakshina_ur
 """
 
 from __future__ import annotations
@@ -19,7 +21,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from .attested import analyze, expand_paths
+from .attested import analyze, expand_paths, load_attested
+from .attested_model import AttestedVariation
+from .dakshina import build_collection
 from .attested import to_markdown as attested_markdown
 from .data import load_dataset, validate
 from .evaluate import EvalConfig, evaluate
@@ -39,8 +43,37 @@ def _protect(path) -> frozenset:
     return frozenset(ln.strip().lower() for ln in lines if ln.strip() and not ln.startswith("#"))
 
 
+def make_model(spec: str, protect=frozenset()):
+    """Build a respelling model from a command-line spec.
+
+    rules                      the hand-written rules (default)
+    attested:FILE[,FILE...]    only spellings people wrote, from these files
+    attested+rules:FILE[,...]  the same, with the rules for words the files lack
+    """
+    if spec == "rules":
+        return VariationModel(protect=protect)
+    kind, _, files = spec.partition(":")
+    if kind not in ("attested", "attested+rules") or not files:
+        raise ValueError(
+            f"unknown --variation {spec!r}: use rules, attested:FILE or attested+rules:FILE"
+        )
+    paths = expand_paths([f for f in files.split(",") if f])
+    missing = [f for f in paths if not Path(f).is_file()]
+    if missing:
+        raise ValueError("file not found: " + ", ".join(missing))
+    table, _ = load_attested(paths)
+    if not table:
+        raise ValueError("no usable (native word, Latin spelling) pairs in: " + ", ".join(paths))
+    fallback = VariationModel(protect=protect) if kind == "attested+rules" else None
+    return AttestedVariation(table, protect=protect, fallback=fallback)
+
+
 def cmd_variants(args) -> int:
-    model = VariationModel(protect=_protect(args.protect_file))
+    try:
+        model = make_model(args.variation, _protect(args.protect_file))
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     print(f"original : {args.text}")
     for i in range(args.n):
         p = model.perturb(args.text, rate=args.rate, seed=derive_seed(args.seed, i), max_edits=args.max_edits)
@@ -166,7 +199,9 @@ def cmd_eval(args) -> int:
     )
     specs = [s.strip() for s in args.retrievers.split(",") if s.strip()]
     try:
-        result = evaluate(ds, specs, config, with_rule_impact=not args.no_rule_impact)
+        model = make_model(args.variation, ds.protected)
+        result = evaluate(ds, specs, config, model=model, with_rule_impact=not args.no_rule_impact,
+                          variation=args.variation.split(":")[0])
     except (ImportError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -184,6 +219,17 @@ def cmd_eval(args) -> int:
     return 0
 
 
+def cmd_build_dakshina(args) -> int:
+    try:
+        info = build_collection(args.src, args.out, args.n_queries, args.query_len, args.seed)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps(info, indent=2))
+    print(f"written to {args.out}. These files are CC BY-SA 4.0: do not commit them to the MIT repository.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hijje", description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -195,6 +241,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=13)
     p.add_argument("--max-edits", type=int, default=1)
     p.add_argument("--protect-file", help="file with words that must not be changed")
+    p.add_argument("--variation", default="rules", help="rules (default), attested:FILE or attested+rules:FILE")
     p.set_defaults(func=cmd_variants)
 
     p = sub.add_parser("normalize", help="show normalisation keys")
@@ -243,7 +290,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-edits", type=int, default=1)
     p.add_argument("--n-boot", type=int, default=2000)
     p.add_argument("--no-rule-impact", action="store_true", help="skip the per-rule analysis")
+    p.add_argument("--variation", default="rules", help="rules (default), attested:FILE or attested+rules:FILE")
     p.set_defaults(func=cmd_eval)
+
+    p = sub.add_parser("build-dakshina", help="build a test collection from the Dakshina Urdu sentences")
+    p.add_argument("--src", required=True, help="Dakshina Urdu folder (contains 'romanized') or the rejoined .tsv file")
+    p.add_argument("--out", required=True)
+    p.add_argument("--n-queries", type=int, default=1000)
+    p.add_argument("--query-len", type=int, default=4)
+    p.add_argument("--seed", type=int, default=13)
+    p.set_defaults(func=cmd_build_dakshina)
     return parser
 
 
