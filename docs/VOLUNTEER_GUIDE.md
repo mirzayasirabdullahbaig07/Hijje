@@ -70,6 +70,51 @@ sentence is kept.
 - Google Sheets stores the data in your Google account. The form already says
   answers are anonymous; do not add a name column.
 
+## One form for everybody (v0.7): the way to share it publicly
+
+Fourteen forms are hard to share: you would have to decide who gets which one,
+and some would never be filled. The **pool form** is one page. When a person
+presses Start it draws 12 random sentences from the pool, so every visitor sees
+a different set. Share one link anywhere (LinkedIn, WhatsApp groups, class).
+
+How the draw works:
+- 6 of the 12 sentences come from the **core** (sets A, B, C: 120 sentences).
+  With 100 visitors every core sentence gets about 5 writers, which is what the
+  spelling comparison needs.
+- 6 come from all the other 429 sentences, to get many different sentences.
+- A person never gets a sentence twice. After finishing, the page offers
+  "Answer a few more sentences" for people who want to give more, with new ones.
+- Closing the page half-way and coming back continues with the same sentences.
+- If sending fails (no internet), the page keeps the answers and tries again
+  when it is opened next time. The CSV download stays as a fallback.
+
+The form asks, all optional: age group, city, province, mother tongue,
+education, device, how often they write Roman Urdu, and an e-mail address for
+the results. There is deliberately no name field: a name adds nothing the
+random code does not give, and people leave forms that ask for it. The e-mail
+goes to a separate tab `contacts` in your Google Sheet and is never put next to
+the answers. **City and e-mail must never be published**; the other profile
+columns can be (as groups).
+
+Make it:
+
+```powershell
+python -m hijje make-pool-form --src $UR --out pool\index.html --contact "WhatsApp +923116046145" --endpoint "PASTE-YOUR-URL-HERE"
+```
+
+Options: `--per-visit 12`, `--core-per-visit 6`, `--core-sets a,b,c`.
+
+Before first use, update the Google script (once): in the Apps Script tab paste
+the new `tools/google_apps_script.js` over the old one, save, then
+**Deploy → Manage deployments → pencil icon → Version: New version → Deploy**.
+The web address does not change. The script now adds the new columns to your
+sheet by itself and creates the `contacts` tab.
+
+Put `pool\index.html` in the `hijje-form` GitHub repository (upload, replacing
+the old `index.html` if any). The link to share is then
+`https://<your-username>.github.io/hijje-form/` (the per-set pages `a.html` ...
+`n.html` can stay or be deleted).
+
 ## The large pool: 14 sets, 549 sentences (v0.6)
 
 `data/real_queries/` holds 14 sets of prompt sentence numbers (`prompt_ids.txt` is

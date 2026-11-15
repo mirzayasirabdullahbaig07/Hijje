@@ -288,6 +288,21 @@ def cmd_make_kit(args) -> int:
     return 0
 
 
+def cmd_make_pool_form(args) -> int:
+    try:
+        batches = collect.all_batches(args.prompts_dir)
+        core = [x.strip().lower() for x in args.core_sets.split(",") if x.strip()]
+        info = collect.make_pool_form(args.src, batches, core, args.out, per_visit=args.per_visit,
+                                      core_per_visit=args.core_per_visit, contact=args.contact,
+                                      title=args.title, endpoint=args.endpoint)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"one form with {info['prompts']} sentences ({info['core']} core), {info['per_visit']} per visitor, written to {info['out']}")
+    print("It contains CC BY-SA 4.0 sentences (Dakshina). Put it on the web for volunteers; do not commit it to the MIT repository.")
+    return 0
+
+
 def cmd_import_text(args) -> int:
     try:
         ids = collect.read_prompt_ids(args.prompts)
@@ -305,7 +320,7 @@ def cmd_import_text(args) -> int:
 
 def cmd_collect_build(args) -> int:
     try:
-        rows, stats = collect.load_responses(args.responses)
+        rows, stats = collect.load_responses(args.responses, min_answers=args.min_answers)
         judgments = collect.load_judgments(args.judgments) if args.judgments else None
         if not rows:
             print("error: no usable answers found", file=sys.stderr)
@@ -477,6 +492,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--intro", default="", help="text placed above the numbered sentences in the WhatsApp files")
     p.set_defaults(func=cmd_make_kit)
 
+    p = sub.add_parser("make-pool-form", help="one form for everybody; each visitor gets a different random set of sentences")
+    p.add_argument("--src", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--prompts-dir", default="data/real_queries")
+    p.add_argument("--core-sets", default="a,b,c", help="sets whose sentences every visitor draws from first (get many writers)")
+    p.add_argument("--per-visit", type=int, default=12, help="sentences each visitor answers")
+    p.add_argument("--core-per-visit", type=int, default=6, help="how many of them come from the core sets")
+    p.add_argument("--contact", default="")
+    p.add_argument("--title", default="Roman Urdu search study")
+    p.add_argument("--endpoint", default="", help="https address that receives the answers")
+    p.set_defaults(func=cmd_make_pool_form)
+
     p = sub.add_parser("import-text", help="turn a typed reply (1) query / 2) query ...) into an answer CSV")
     p.add_argument("--reply", required=True, help="text file with the person's reply")
     p.add_argument("--prompts", required=True, help="the prompt-id file of the set that person got")
@@ -489,6 +516,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--src", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--judgments", help="filled judge sheet from `hijje judge-sheet`")
+    p.add_argument("--min-answers", type=int, default=0, help="drop writers with fewer usable answers (the analysis plan uses 4)")
     p.set_defaults(func=cmd_collect_build)
 
     p = sub.add_parser("judge-sheet", help="list pooled passages for a person to grade")

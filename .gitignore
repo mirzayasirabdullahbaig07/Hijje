@@ -30,3 +30,5 @@ judge*.csv
 results/dakshina_*/variants.jsonl
 
 kit/
+
+pool/

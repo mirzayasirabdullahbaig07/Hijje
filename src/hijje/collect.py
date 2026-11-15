@@ -39,7 +39,9 @@ from .metrics import bootstrap_ci, jaccard, mean, mrr_at_k, ndcg_at_k, recall_at
 from .retrievers import build_retriever
 from .variation import derive_seed
 
-RESPONSE_COLUMNS = ["writer", "prompt", "status", "query", "device", "province", "frequency"]
+RESPONSE_COLUMNS = ["writer", "prompt", "status", "query", "device", "province", "frequency",
+                    "age_group", "city", "mother_tongue", "education"]
+PROFILE_COLUMNS = ["device", "province", "frequency", "age_group", "city", "mother_tongue", "education"]
 MAX_QUERY_CHARS = 200
 _ARABIC_SCRIPT = re.compile(r"[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]")
 _PROMPT_ID = re.compile(r"^s\d{5}$")
@@ -104,8 +106,52 @@ def make_form(src, prompt_ids: Sequence[str], out, contact: str = "", title: str
     # no "<" may reach the page: it could close the <script> element or open a comment
     payload = payload.replace("<", "\\u003c")
     html = FORM_HTML.replace("__PAYLOAD__", payload).replace("__TITLE__", title)
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
     Path(out).write_text(html, encoding="utf-8")
     return {"prompts": len(prompts), "out": str(out)}
+
+
+def make_pool_form(src, batches: dict, core_sets: Sequence[str], out, per_visit: int = 12,
+                   core_per_visit: int = 6, contact: str = "", title: str = "Roman Urdu search study",
+                   endpoint: str = "") -> dict:
+    """One form for everybody: each visitor draws ``per_visit`` random sentences.
+
+    ``batches`` is ``{"a": [ids], ...}`` (see ``all_batches``). Sentences of the
+    sets named in ``core_sets`` form the *core*: every visitor gets
+    ``core_per_visit`` of them and ``per_visit - core_per_visit`` from all the
+    other sentences. With 120 core sentences and 6 per visit, 100 visitors give
+    about 5 writers per core sentence.
+    """
+    from .pool_form_template import POOL_FORM_HTML
+
+    if endpoint and not endpoint.startswith("https://"):
+        raise ValueError("endpoint must be an https:// address")
+    unknown = set(core_sets) - set(batches)
+    if unknown:
+        raise ValueError(f"core set(s) not found: {sorted(unknown)}")
+    core_ids = {i for k in core_sets for i in batches[k]}
+    all_ids = [i for ids in batches.values() for i in ids]
+    if len(set(all_ids)) != len(all_ids):
+        raise ValueError("a sentence is in two sets")
+    if not 1 <= per_visit <= len(all_ids):
+        raise ValueError("per_visit must be between 1 and the number of sentences")
+    if not 0 <= core_per_visit <= per_visit:
+        raise ValueError("core_per_visit must be between 0 and per_visit")
+    if core_per_visit > len(core_ids):
+        raise ValueError("core_per_visit is larger than the core")
+    if per_visit - core_per_visit > len(all_ids) - len(core_ids):
+        raise ValueError("not enough sentences outside the core")
+    text = dict(_prompts_with_text(src, all_ids))
+    prompts = [{"id": i, "text": text[i], "core": i in core_ids} for i in all_ids]
+    payload = json.dumps(
+        {"prompts": prompts, "per_visit": per_visit, "core_per_visit": core_per_visit,
+         "contact": contact, "title": title, "endpoint": endpoint},
+        ensure_ascii=False,
+    ).replace("<", "\\u003c")
+    html = POOL_FORM_HTML.replace("__PAYLOAD__", payload).replace("__TITLE__", title)
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    Path(out).write_text(html, encoding="utf-8")
+    return {"prompts": len(prompts), "core": len(core_ids), "per_visit": per_visit, "out": str(out)}
 
 
 # -- other ways to answer ------------------------------------------------------
@@ -177,7 +223,7 @@ def parse_reply(text: str, prompt_ids: Sequence[str], writer: str) -> tuple[list
         found[n] = query
     rows = [
         {"writer": writer, "prompt": prompt_ids[n - 1], "status": "ok", "query": q,
-         "device": "", "province": "", "frequency": ""}
+         **{c: "" for c in PROFILE_COLUMNS}}
         for n, q in sorted(found.items())
     ]
     stats["answers found"] = len(rows)
@@ -203,8 +249,11 @@ def all_batches(folder) -> dict:
 
 # -- responses -----------------------------------------------------------------
 
-def load_responses(paths: Iterable[str]) -> tuple[list[dict], dict]:
+def load_responses(paths: Iterable[str], min_answers: int = 0) -> tuple[list[dict], dict]:
     """Read volunteer CSV files. Returns (clean rows, counts of what was dropped).
+
+    ``min_answers``: a writer with fewer usable answers than this is dropped
+    completely (every row), and counted. The analysis plan uses 4.
 
     One row per (writer, prompt): if a writer answered a prompt twice, the last
     answer is kept. Every dropped row is counted by reason.
@@ -237,11 +286,18 @@ def load_responses(paths: Iterable[str]) -> tuple[list[dict], dict]:
                     continue
                 latest[(writer, prompt)] = {
                     "writer": writer, "prompt": prompt, "query": query,
-                    "device": (row.get("device") or "").strip(),
-                    "province": (row.get("province") or "").strip(),
-                    "frequency": (row.get("frequency") or "").strip(),
+                    **{c: (row.get(c) or "").strip() for c in PROFILE_COLUMNS},
                 }
     rows = [latest[k] for k in sorted(latest)]
+    if min_answers > 0:
+        per_writer: dict = defaultdict(int)
+        for r in rows:
+            per_writer[r["writer"]] += 1
+        short = {w for w, n in per_writer.items() if n < min_answers}
+        if short:
+            stats["dropped: writers with fewer than %d usable answers" % min_answers] = len(short)
+            stats["dropped: rows of those writers"] = sum(1 for r in rows if r["writer"] in short)
+            rows = [r for r in rows if r["writer"] not in short]
     stats["rows kept"] = len(rows)
     stats["writers"] = len({r["writer"] for r in rows})
     stats["prompts answered"] = len({r["prompt"] for r in rows})

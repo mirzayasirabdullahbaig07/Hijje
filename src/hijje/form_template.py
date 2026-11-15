@@ -102,7 +102,8 @@ FORM_HTML = r"""<!doctype html>
   var CONFIG = JSON.parse(document.getElementById("config").textContent);
   var PROMPTS = CONFIG.prompts;
   var COLUMNS = ["writer", "prompt", "status", "query", "device", "province", "frequency"];
-  var STORE_KEY = "hijje-form-v1";
+  // Every set is a separate page on the same website, so each must keep its own saved state.
+  var STORE_KEY = "hijje-form-v2-" + (function () { var h = 5381, t = PROMPTS.map(function (p) { return p.id; }).join(","); for (var i = 0; i < t.length; i++) { h = ((h << 5) + h + t.charCodeAt(i)) >>> 0; } return h.toString(36); })();
   var $ = function (id) { return document.getElementById(id); };
 
   document.getElementById("title").textContent = CONFIG.title;
@@ -174,13 +175,13 @@ FORM_HTML = r"""<!doctype html>
     st.textContent = "Sending your answers...";
     fetch(CONFIG.endpoint, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ rows: rowsForSend() }) })
       .then(function () { state.sent = true; save(); st.textContent = "Your answers were sent. Thank you! Nothing more to do."; $("downloadtext").classList.add("hidden"); document.querySelector("#done details").classList.add("hidden"); $("download").parentNode.classList.add("hidden"); })
-      .catch(function () { st.textContent = "Sending did not work (no internet?). Press Send again, or download the file below and send it to us."; $("retryrow").classList.remove("hidden"); });
+      .catch(function () { st.textContent = "Sending did not work (no internet?). Press Send again, or download the file below and send it to us."; if (CONFIG.contact) { $("send").textContent = "Send the file to: " + CONFIG.contact; } $("retryrow").classList.remove("hidden"); });
   }
   function finish() {
     var answered = Object.keys(state.answers).filter(function (k) { return state.answers[k].status === "ok"; }).length;
     $("answered").textContent = answered; $("total").textContent = PROMPTS.length;
     $("csvbox").value = buildCsv();
-    $("send").textContent = CONFIG.contact ? "Send the file to: " + CONFIG.contact : "Send the downloaded file to the person who gave you this page.";
+    $("send").textContent = CONFIG.endpoint ? "" : (CONFIG.contact ? "Send the file to: " + CONFIG.contact : "Send the downloaded file to the person who gave you this page.");
     $("progress").style.width = "100%";
     save(); show("done");
     if (CONFIG.endpoint && !state.sent) { sendAnswers(); }

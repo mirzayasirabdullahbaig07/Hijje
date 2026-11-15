@@ -72,3 +72,48 @@ def test_finishing_sends_rows_that_load_back(tmp_path, fail_first):
     got, stats = collect.load_responses([str(sheet)])
     assert sorted(r["query"] for r in got) == ["jawab 0 =1+1", "jawab 2 =1+1"]
     assert stats["dropped: skipped or empty"] == 1
+
+
+def test_two_sets_on_one_website_do_not_share_saved_state(tmp_path):
+    """Sets are pages of one site, so a person who did set A must get a fresh set B."""
+    import http.server
+    import threading
+
+    sync_api = pytest.importorskip("playwright.sync_api")
+    collect.make_form(SENTENCES, ["s00001", "s00002"], tmp_path / "a.html", endpoint=ENDPOINT)
+    collect.make_form(SENTENCES, ["s00003", "s00004"], tmp_path / "b.html", endpoint=ENDPOINT)
+
+    class Quiet(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *a, **k):
+            super().__init__(*a, directory=str(tmp_path), **k)
+
+        def log_message(self, *a):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Quiet)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    bodies = []
+    try:
+        with sync_api.sync_playwright() as pw:
+            browser = pw.chromium.launch()
+            page = browser.new_page()
+            page.route(ENDPOINT, lambda route: (bodies.append(route.request.post_data), route.fulfill(status=200, body="ok")))
+            for name in ("a", "b"):
+                page.goto(f"{base}/{name}.html")
+                assert page.locator("#resume").is_hidden(), f"set {name} resumed another set's answers"
+                page.check("#consent")
+                page.click("#start")
+                for i in range(2):
+                    page.fill("#query", f"jawab {name}{i}")
+                    page.click("#next")
+                page.wait_for_function("document.querySelector('#sendstatus').textContent.includes('were sent')")
+                assert page.locator("#send").inner_text() == ""
+            browser.close()
+    finally:
+        server.shutdown()
+    assert len(bodies) == 2
+    sent = [json.loads(b)["rows"] for b in bodies]
+    assert {r["prompt"] for r in sent[0]} == {"s00001", "s00002"}
+    assert {r["prompt"] for r in sent[1]} == {"s00003", "s00004"}
+    assert sent[0][0]["writer"] != sent[1][0]["writer"]

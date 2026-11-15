@@ -319,3 +319,17 @@ def test_cli_refuses_clearly_when_there_is_nothing_to_use(tmp_path, capsys):
     assert main(["collect-build", "--responses", str(empty), "--src", SENTENCES, "--out", str(tmp_path / "d")]) == 1
     assert "no usable answers" in capsys.readouterr().err
     assert main(["real-eval", "--data", str(tmp_path)]) == 1
+
+
+def test_writers_with_too_few_answers_are_dropped_completely(tmp_path):
+    f = tmp_path / "a.csv"
+    lines = ["writer,prompt,status,query"]
+    lines += [f"w-long,s0000{i},ok,q{i}" for i in range(1, 6)]      # 5 answers
+    lines += [f"w-short,s0000{i},ok,q{i}" for i in range(1, 3)]     # 2 answers
+    f.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    rows, stats = collect.load_responses([str(f)], min_answers=4)
+    assert {r["writer"] for r in rows} == {"w-long"} and len(rows) == 5
+    assert stats["dropped: writers with fewer than 4 usable answers"] == 1
+    assert stats["dropped: rows of those writers"] == 2
+    rows_all, _ = collect.load_responses([str(f)])
+    assert len(rows_all) == 7
