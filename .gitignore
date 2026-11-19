@@ -15,6 +15,7 @@ results/*
 !results/seed_dense/
 !results/dakshina_*/
 !results/normcheck/
+!results/volunteers_*/
 
 # Built from CC BY-SA 4.0 text (Dakshina): build locally, never commit
 data/dakshina_ur/
@@ -28,7 +29,7 @@ judge*.csv
 .cache/
 
 results/dakshina_*/variants.jsonl
+data/volunteers/
 
 kit/
-
 pool/

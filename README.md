@@ -563,6 +563,29 @@ their required `query:` / `passage:` prefixes automatically.
 7. **The literature check was brief.** A full review may find closer prior work,
    especially for romanised Hindi.
 
+## Results on volunteer-written spellings (first run, 19 November 2026)
+
+102 volunteers, 1,352 cleaned answers, 35 core sentences with at least 3 writers
+(`results/volunteers_primary/`). Most volunteers wrote the whole sentence in Roman
+Urdu, so this measures **spelling variation of the same words**, not searching; see
+[docs/DEVIATIONS.md](docs/DEVIATIONS.md) for exactly what changed from the plan
+and why. nDCG@10, 4 distinctive words per sentence:
+
+| System | words as in the passage | the same words, volunteer's spelling |
+|---|---|---|
+| bm25 | 1.000 | 0.769 |
+| bm25-l1 (length) | 1.000 | 0.886 |
+| bm25-l2 (phonetic) | 1.000 | 0.936 |
+| bm25-l3 (skeleton) | 1.000 | 0.994 |
+| bm25-l4 (vowel class) | 1.000 | 0.961 |
+| char n-gram | 0.989 | 0.928 |
+| fusion | 1.000 | 0.913 |
+
+Plain BM25 loses 23% (95% CI 16 to 31%); level 3 recovers nearly all of it; level 4,
+designed on the Dakshina data, is slightly worse than level 3. The collection is
+small (9,759 sentences) and the 4 words are rare, so level 3's near-perfect score
+will not carry over unchanged to larger collections.
+
 ## Roadmap
 
 | | Milestone | State |
@@ -572,8 +595,8 @@ their required `query:` / `passage:` prefixes automatically.
 | M2 | Dense baselines on the seed set | done |
 | M3 | Literature review of 20–30 papers | |
 | M4 | Real corpus with a clear licence | first one in use: Dakshina Urdu sentences (CC BY-SA 4.0), constructed queries; a corpus with real user queries is still needed |
-| M5 | 300+ queries with relevance labels | kit ready (v0.5); needs about 8 volunteers and a pooled-judging session |
-| M6 | Human-written spelling variants, 5+ writers per query | kit ready (v0.5); also partly: the Dakshina word lexicon gives about 4 spellings per word; whole queries written by several people are still needed |
+| M5 | 300+ queries with relevance labels | 1,352 volunteer answers collected (19 Nov 2026); relevance is the source sentence only; pooled judging by two people still to do |
+| M6 | Human-written spelling variants, 5+ writers per query | done for the 40 core sentences (12 to 23 writers each, before cleaning), but as whole-sentence spellings; a keyword-search collection is still needed (docs/DEVIATIONS.md, D7) |
 | M7 | Full experiments | |
 | M8 | Paper draft | |
 

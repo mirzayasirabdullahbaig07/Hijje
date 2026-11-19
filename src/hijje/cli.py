@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import sys
 from collections import defaultdict
@@ -303,6 +304,55 @@ def cmd_make_pool_form(args) -> int:
     return 0
 
 
+def cmd_clean_answers(args) -> int:
+    from . import clean
+
+    try:
+        rows, stats = clean.clean_answers(args.responses, args.src, min_answers=args.min_answers,
+                                          keep_unrelated=args.keep_unrelated, exclude_writers=args.exclude_writers)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cols = collect.RESPONSE_COLUMNS[:1] + ["prompt", "query"] + collect.PROFILE_COLUMNS + ["style", "coverage", "precision"]
+    with out.open("w", encoding="utf-8-sig", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+    report = clean.report_markdown(stats)
+    if args.report:
+        Path(args.report).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.report).write_text(report, encoding="utf-8")
+    print(report)
+    print(f"{len(rows)} cleaned answers written to {out}")
+    return 0
+
+
+def cmd_confirm(args) -> int:
+    from . import clean, confirm
+
+    try:
+        rows, stats = clean.clean_answers(args.responses, args.src, min_answers=args.min_answers,
+                                           exclude_writers=args.exclude_writers)
+        core = set(collect.read_prompt_ids(args.core)) if args.core else None
+        systems = tuple(s.strip() for s in args.systems.split(",") if s.strip())
+        res = confirm.run(rows, args.src, systems=systems, min_writers=args.min_writers, core=core,
+                          n_boot=args.n_boot, seed=args.seed)
+    except (FileNotFoundError, ValueError, ImportError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    report = clean.report_markdown(stats) + "\n" + confirm.to_markdown(res)
+    if args.out:
+        out = Path(args.out)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "summary.md").write_text(report, encoding="utf-8")
+        slim = {k: v for k, v in res.items() if k != "_per_prompt"}
+        (out / "results.json").write_text(json.dumps(slim, indent=1) + "\n", encoding="utf-8")
+    print(report)
+    return 0
+
+
 def cmd_import_text(args) -> int:
     try:
         ids = collect.read_prompt_ids(args.prompts)
@@ -503,6 +553,29 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--title", default="Roman Urdu search study")
     p.add_argument("--endpoint", default="", help="https address that receives the answers")
     p.set_defaults(func=cmd_make_pool_form)
+
+    p = sub.add_parser("clean-answers", help="apply the analysis plan's rules to the volunteers' answers and label each answer's type")
+    p.add_argument("--responses", nargs="+", required=True, help="answer CSV file(s) downloaded from the Google Sheet")
+    p.add_argument("--src", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--report")
+    p.add_argument("--min-answers", type=int, default=4)
+    p.add_argument("--keep-unrelated", action="store_true", help="keep answers that share no word with the sentence (sensitivity analysis)")
+    p.add_argument("--exclude-writers", nargs="*", default=[], help="writer codes of your own test answers")
+    p.set_defaults(func=cmd_clean_answers)
+
+    p = sub.add_parser("confirm", help="run the analysis fixed in docs/PREREGISTRATION.md on the volunteers' answers")
+    p.add_argument("--responses", nargs="+", required=True)
+    p.add_argument("--src", required=True)
+    p.add_argument("--core", default="data/real_queries/prompt_ids.txt", help="prompt-id file of the core set (primary analysis)")
+    p.add_argument("--systems", default="bm25,bm25-l1,bm25-l2,bm25-l3,bm25-l4,char,fusion")
+    p.add_argument("--min-answers", type=int, default=4)
+    p.add_argument("--min-writers", type=int, default=3)
+    p.add_argument("--exclude-writers", nargs="*", default=[], help="writer codes of your own test answers")
+    p.add_argument("--n-boot", type=int, default=2000)
+    p.add_argument("--seed", type=int, default=13)
+    p.add_argument("--out")
+    p.set_defaults(func=cmd_confirm)
 
     p = sub.add_parser("import-text", help="turn a typed reply (1) query / 2) query ...) into an answer CSV")
     p.add_argument("--reply", required=True, help="text file with the person's reply")
